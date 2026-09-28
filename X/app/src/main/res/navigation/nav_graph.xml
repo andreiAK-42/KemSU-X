@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <!-- ОСНОВНОЙ граф. Login — стартовый экран (ТЗ). Открывается Design/Split -->
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.example.x.ui.fragments.LoginFragment"
+        android:label="Вход • КемГУ (главный)">
+        <action
+            android:id="@+id/action_login_to_courses"
+            app:destination="@id/coursesFragment" />
+        <action
+            android:id="@+id/action_login_to_detail"
+            app:destination="@id/detailFragment" />
+        <action
+            android:id="@+id/action_login_to_events"
+            app:destination="@id/eventsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/coursesFragment"
+        android:name="com.example.x.ui.fragments.CoursesFragment"
+        android:label="Дисциплины">
+        <action
+            android:id="@+id/action_courses_to_detail"
+            app:destination="@id/detailFragment" />
+        <action
+            android:id="@+id/action_courses_to_events"
+            app:destination="@id/eventsFragment" />
+        <action
+            android:id="@+id/action_courses_to_login"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_courses_to_settings"
+            app:destination="@id/settingsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.example.x.ui.fragments.SettingsFragment"
+        android:label="Настройки" />
+
+    <fragment
+        android:id="@+id/eventsFragment"
+        android:name="com.example.x.ui.fragments.EventsFragment"
+        android:label="События">
+        <action
+            android:id="@+id/action_events_to_back"
+            app:popUpTo="@id/loginFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/detailFragment"
+        android:name="com.example.x.ui.fragments.DetailFragment"
+        android:label="Детали курса">
+        <argument
+            android:name="cId"
+            app:argType="string"
+            android:defaultValue="" />
+        <action
+            android:id="@+id/action_detail_to_back"
+            app:popUpTo="@id/loginFragment" />
+    </fragment>
+
+</navigation>
