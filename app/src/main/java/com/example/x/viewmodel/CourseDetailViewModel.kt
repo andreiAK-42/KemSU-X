@@ -29,17 +29,19 @@ class CourseDetailViewModel(app: Application) : AndroidViewModel(app) {
             loadTasks(cId)
         }
     }
-    fun loadById(id: Long) {
-        viewModelScope.launch {
-            _course.value = repo.getCourseById(id)
-        }
-    }
+
+    /**Получение списка лаб из дисциплины**/
     fun loadTasks(cId: String) {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
+
             val res = repo.fetchTasks(cId)
-            if (res.isSuccess) _tasks.value = res.getOrNull() ?: emptyList()
+
+            if (res.isSuccess) {
+                _tasks.value = res.getOrNull() ?: emptyList()
+            }
+
             else _error.value = res.exceptionOrNull()?.message
             _loading.value = false
         }

@@ -102,7 +102,7 @@ fun CoursesContent(
     onLoginClick: () -> Unit,
     onSettingsClick: () -> Unit = {}
 ) {
-    // Разрешение на уведомления для фоновых напоминаний (без тестовой кнопки)
+    // Разрешение на уведомления для фоновых напоминаний
     if (Build.VERSION.SDK_INT >= 33) {
         val ctx = LocalContext.current
         val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }

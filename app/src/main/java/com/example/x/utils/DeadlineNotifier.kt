@@ -119,11 +119,6 @@ object DeadlineNotifier {
         return pool[idx]
     }
 
-    fun sendTestNotification(context: Context) {
-        ensureChannel(context)
-        notifyOne(context, "Тест уведомления", "Это тестовое уведомление о дедлайне со звуком \uD83D\uDD14", 9999)
-    }
-
     private fun notifyOne(context: Context, title: String, text: String, id: Int) {
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val n = NotificationCompat.Builder(context, CHANNEL_ID)

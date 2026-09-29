@@ -1,5 +1,6 @@
 package com.example.x.ui.screens
 
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -69,8 +71,6 @@ fun CourseDetailContent(
                             DetailRow("Период", c.period)
                             DetailRow("Преподаватель", c.teacher)
                             DetailRow("Баллы", c.points.toString())
-                            DetailRow("c_id", c.cId ?: "—")
-                            DetailRow("№", c.num.toString())
                         }
                     }
                 }
@@ -80,8 +80,15 @@ fun CourseDetailContent(
                         Text("${tasks.size} шт.", style = MaterialTheme.typography.labelMedium)
                     }
                 }
-                if (loading) { item { LinearProgressIndicator(Modifier.fillMaxWidth()) } }
-                error?.let { item { Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) { Text(it, modifier = Modifier.padding(12.dp)) } } }
+                if (loading)
+                {
+                    item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                }
+                error?.let { item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer))
+                        { Text(it, modifier = Modifier.padding(12.dp)) }
+                    }
+                }
                 if (tasks.isEmpty() && !loading && error == null) {
                     item { Text("Нет заданий. Нажми Обновить. Запрос: POST /proc/stud/course_st/tasks_st.htm c_id=$cId (см. Logcat KEMSU_API)", style = MaterialTheme.typography.bodySmall) }
                 }
@@ -101,8 +108,9 @@ fun CourseDetailContent(
                             }
                             if (t.comment.isNotBlank()) {
                                 SelectionContainer {
-                                    TextButton(onClick = { if (t.comment.startsWith("http")) try { uriHandler.openUri(t.comment) } catch (_: Exception) {} }, contentPadding = PaddingValues(0.dp)) {
-                                        Text(t.comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                    TextButton( onClick = { if (t.comment.startsWith("http")) try { uriHandler.openUri(t.comment) } catch (_: Exception) {} }, contentPadding = PaddingValues(0.dp), shape = RectangleShape) {
+                                        val comment = if (t.comment.length > 100) "${t.comment.take(100)}..." else t.comment
+                                        Text(comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }

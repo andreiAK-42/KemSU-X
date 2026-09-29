@@ -3,6 +3,7 @@ package com.example.x.data.local
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**Дисциплины**/
 @Entity(tableName = "courses")
 data class CourseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -18,6 +19,7 @@ data class CourseEntity(
     val studyYearFilter: String
 )
 
+/**Лабораторные работы**/
 @Entity(tableName = "labs")
 data class LabEntity(
     @PrimaryKey val id: String,

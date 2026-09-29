@@ -37,11 +37,6 @@ class PrefsManager(context: Context) {
     fun setLastDeadlineScan(now: Long = System.currentTimeMillis()) {
         prefs.edit().putLong("last_deadline_scan", now).apply()
     }
-    fun isDeadlineScanDue(intervalMs: Long = 2L * 24 * 60 * 60 * 1000): Boolean {
-        val last = getLastDeadlineScan()
-        if (last == 0L) return true
-        return System.currentTimeMillis() - last >= intervalMs
-    }
 
     /** За сколько дней до дедлайна напоминать. Дефолт — 1 день. */
     fun getNotifyDays(): Int = prefs.getInt("notify_days", 1).coerceIn(0, 30)
@@ -72,9 +67,4 @@ class PrefsManager(context: Context) {
     }
 
     fun clear() { prefs.edit().clear().apply() }
-
-    // legacy
-    fun saveUser(name: String, avatar: String?) {
-        prefs.edit().putString("user_name", name).putString("avatar", avatar).apply()
-    }
 }
