@@ -267,12 +267,14 @@ fun CoursesContent(
                             com.example.x.data.model.LabCategory.ZERO -> androidx.compose.ui.graphics.Color(0xFFFDE8EA)
                             com.example.x.data.model.LabCategory.REVIEW -> androidx.compose.ui.graphics.Color(0xFFE2F0FD)
                             com.example.x.data.model.LabCategory.TODO -> androidx.compose.ui.graphics.Color(0xFFFFF0BE)
+                            com.example.x.data.model.LabCategory.EDIT -> androidx.compose.ui.graphics.Color(0xFFB983FD)
                         }
                         val accent = when (cat) {
                             com.example.x.data.model.LabCategory.DONE -> androidx.compose.ui.graphics.Color(0xFF1B5E20)
                             com.example.x.data.model.LabCategory.ZERO -> androidx.compose.ui.graphics.Color(0xFFB3261E)
                             com.example.x.data.model.LabCategory.REVIEW -> androidx.compose.ui.graphics.Color(0xFF0D47A1)
                             com.example.x.data.model.LabCategory.TODO -> androidx.compose.ui.graphics.Color(0xFF7A5C00)
+                            com.example.x.data.model.LabCategory.EDIT -> androidx.compose.ui.graphics.Color(0xFF7D2AE8)
                         }
                         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = bg)) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

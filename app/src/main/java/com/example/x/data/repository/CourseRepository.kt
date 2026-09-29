@@ -36,10 +36,6 @@ class CourseRepository(
         const val TASKS_CACHE_TTL = 2L * 24 * 60 * 60 * 1000
     }
 
-    fun observeCourses(yearFilter: String): Flow<List<Course>> =
-        if (yearFilter.isBlank()) db.courseDao().observeAll().map { it.map { e -> e.toModel() } }
-        else db.courseDao().observeByYear(yearFilter).map { it.map { e -> e.toModel() } }
-
     /** Весь список для локальной фильтрации по реальному году курса (Course.year). */
     fun observeAllCourses(): Flow<List<Course>> =
         db.courseDao().observeAll().map { it.map { e -> e.toModel() } }
@@ -58,15 +54,10 @@ class CourseRepository(
     fun observeStudentName(): Flow<String?> = db.studentInfoDao().observe().map { it?.name }
 
     suspend fun getCourseByCId(cId: String): Course? = db.courseDao().getByCId(cId)?.toModel()
-    suspend fun getCourseById(id: Long): Course? = db.courseDao().getById(id)?.toModel()
-
-    // Моков в боевом коде нет: MockData/KemsuStubApi используются только в @Preview.
-    // fetchUser/fetchDisciplines/fetchLabs удалены — пользователь/дисциплины идут из
-    // login()/refresh(), лабы — из scanDeadlines().
 
     suspend fun login(username: String, password: String): Result<Unit> {
         Log.d(TAG, "LOGIN attempt user=$username url=${ApiConfig.LOGIN_URL} lifetime=3m")
-        // 1. Пробуем новый JSON API (api-next.kemsu.ru)
+
         if (ApiConfig.LOGIN_URL.contains("api-next.kemsu.ru") || ApiConfig.LOGIN_URL.contains("security/auth")) {
             val raw = api.loginJson(username, password)
             Log.d(TAG, "loginJson raw success=${raw.isSuccess}")

@@ -11,7 +11,7 @@ object MockData {
         name = "Иванов Иван Иванович",
         group = "ИБ-21",
         faculty = "ИФН",
-        avatarUrl = null // можно подставить https://i.pravatar.cc/200
+        avatarUrl = null
     )
 
     val courses = listOf(

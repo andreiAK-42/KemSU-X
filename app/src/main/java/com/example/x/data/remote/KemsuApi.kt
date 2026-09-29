@@ -1,7 +1,7 @@
 package com.example.x.data.remote
 
 import android.content.Context
-import android.util.Log
+import com.example.x.data.remote.ApiConfig.XIAIS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
@@ -10,7 +10,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
 import org.jsoup.parser.Parser
 import java.net.CookieManager
@@ -34,7 +33,6 @@ class KemsuApi(private val appContext: Context? = null) {
     }
 
     private val cp1251: Charset = Charset.forName("windows-1251")
-    private val base = "https://xiais.kemsu.ru/proc"
     private val userAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/108.0.5359.125 Safari/537.36"
@@ -44,17 +42,9 @@ class KemsuApi(private val appContext: Context? = null) {
         appContext?.let { com.example.x.data.local.PrefsManager(it) }
     }
 
-    private val logger = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-        redactHeader("Cookie")
-        redactHeader("Set-Cookie")
-        redactHeader("Authorization")
-    }
-
     val client: OkHttpClient = run {
         val (sf, tm) = createLenientSsl()
         OkHttpClient.Builder()
-            .addInterceptor(logger)
             .cookieJar(JavaNetCookieJar(cookieManager))
             .sslSocketFactory(sf, tm)
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -88,12 +78,11 @@ class KemsuApi(private val appContext: Context? = null) {
                     var expired = false
                     while (cause != null && !expired) {
                         expired = cause is java.security.cert.CertificateExpiredException ||
-                            (cause is java.security.cert.CertPathValidatorException &&
-                                cause.reason == java.security.cert.CertPathValidatorException.BasicReason.EXPIRED)
+                                (cause is java.security.cert.CertPathValidatorException &&
+                                        cause.reason == java.security.cert.CertPathValidatorException.BasicReason.EXPIRED)
                         cause = cause.cause
                     }
                     if (!expired) throw e
-                    Log.w("KEMSU_API", "SSL expired cert accepted: ${chain.firstOrNull()?.subjectX500Principal}")
                 }
             }
         }
@@ -237,7 +226,7 @@ class KemsuApi(private val appContext: Context? = null) {
 
     suspend fun fetchLoginPage(): String = withContext(Dispatchers.IO) {
         val request = Request.Builder()
-            .url("$base/")
+            .url("$XIAIS/proc/")
             .header("User-Agent", userAgent)
             .build()
 
@@ -258,18 +247,18 @@ class KemsuApi(private val appContext: Context? = null) {
             val postUrl = if (action.startsWith("http")) {
                 action
             } else {
-                "$base/$action"
+                "$XIAIS/proc/$action"
                     .replace("//", "/")
                     .replace("https:/", "https://")
             }
 
-            val finalUrl = if (postUrl.contains("://")) postUrl else "$base/"
+            val finalUrl = if (postUrl.contains("://")) postUrl else "$XIAIS/proc/"
 
             val request = Request.Builder()
                 .url(finalUrl)
                 .header("User-Agent", userAgent)
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .header("Referer", "$base/")
+                .header("Referer", "$XIAIS/proc/")
                 .post(form.build())
                 .build()
 
@@ -353,7 +342,7 @@ class KemsuApi(private val appContext: Context? = null) {
                 .build()
 
             val request = Request.Builder()
-                .url("$base/stud/index.shtm")
+                .url("$XIAIS/proc/stud/index.shtm")
                 .header("User-Agent", userAgent)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("Origin", "https://xiais.kemsu.ru")
@@ -369,7 +358,7 @@ class KemsuApi(private val appContext: Context? = null) {
             try {
                 val preRequest = Request.Builder()
                     .url(
-                        "$base/stud/?" +
+                        "$XIAIS/proc/stud/?" +
                                 "backToNewEios=https://eios.kemsu.ru/main/personal-area"
                     )
                     .header("User-Agent", userAgent)
@@ -391,34 +380,22 @@ class KemsuApi(private val appContext: Context? = null) {
             client.newCall(request).execute().use {
                 dedupeCookies()
                 val txt = responseBodyAsCp1251(it)
-                // Дамп для диагностики дублей cId (Device Explorer: cache/disciplines.html)
-                try {
-                    appContext?.let { ctx ->
-                        val f = java.io.File(ctx.cacheDir, "disciplines.html")
-                        f.writeText(txt, Charsets.UTF_8)
-                        Log.d("KEMSU_API", "disciplines saved size=${f.length()}")
-                    }
-                } catch (e: Exception) { Log.w("KEMSU_API", "disciplines save failed $e") }
                 txt
             }
         }
 
     suspend fun fetchTasks(
-        cId: String,
-        x: String = "6",
-        y: String = "8"
+        cId: String
     ): String = withContext(Dispatchers.IO) {
         syncAuthCookies()
         dedupeCookies()
 
         val form = FormBody.Builder()
             .add("c_id", cId)
-            .add("x", x)
-            .add("y", y)
             .build()
 
         val request = Request.Builder()
-            .url("$base/stud/course_st/tasks_st.htm")
+            .url("$XIAIS/proc/stud/course_st/tasks_st.htm")
             .header("User-Agent", userAgent)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Origin", "https://xiais.kemsu.ru")
@@ -431,14 +408,6 @@ class KemsuApi(private val appContext: Context? = null) {
 
         client.newCall(request).execute().use {
             val txt = responseBodyAsCp1251(it)
-            // Дамп для диагностики (Device Explorer: cache/tasks_<cId>.html)
-            try {
-                appContext?.let { ctx ->
-                    val f = java.io.File(ctx.cacheDir, "tasks_$cId.html")
-                    f.writeText(txt, Charsets.UTF_8)
-                    Log.d("KEMSU_API", "tasks $cId saved size=${f.length()}")
-                }
-            } catch (e: Exception) { Log.w("KEMSU_API", "tasks save failed $e") }
             txt
         }
     }

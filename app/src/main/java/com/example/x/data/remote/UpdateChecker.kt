@@ -1,6 +1,5 @@
 package com.example.x.data.remote
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -17,67 +16,105 @@ data class UpdateInfo(
     val hasUpdate: Boolean = isNewer(latest, current)
 }
 
-/** true, если latest новее current ("v1.2" vs "1.0", "1.0.1" vs "1.0"). */
+/**
+ * Проверяет, является ли latest более новой версией, чем current.
+ *
+ * Поддерживает версии с префиксом "v" и разделителями ".", "-" и "_".
+ */
 fun isNewer(latest: String, current: String): Boolean {
-    fun parts(v: String): List<Int> =
-        v.trim().removePrefix("v").removePrefix("V")
+    fun parts(version: String): List<Int> {
+        return version
+            .trim()
+            .removePrefix("v")
+            .removePrefix("V")
             .split(".", "-", "_")
-            .map { it.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 }
-    val a = parts(latest)
-    val b = parts(current)
-    val n = maxOf(a.size, b.size)
-    for (i in 0 until n) {
-        val x = a.getOrElse(i) { 0 }
-        val y = b.getOrElse(i) { 0 }
-        if (x != y) return x > y
+            .map { part ->
+                part.filter(Char::isDigit).toIntOrNull() ?: 0
+            }
     }
+
+    val latestParts = parts(latest)
+    val currentParts = parts(current)
+    val partCount = maxOf(latestParts.size, currentParts.size)
+
+    for (index in 0 until partCount) {
+        val latestPart = latestParts.getOrElse(index) { 0 }
+        val currentPart = currentParts.getOrElse(index) { 0 }
+
+        if (latestPart != currentPart) {
+            return latestPart > currentPart
+        }
+    }
+
     return false
 }
 
 object UpdateChecker {
-    private const val TAG = "KEMSU_API"
-    private val client: OkHttpClient = OkHttpClient.Builder()
+
+    private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    /** Последний релиз GitHub. null — репозиторий не задан, сети нет или ошибка (молча). */
-    suspend fun check(owner: String, repo: String, current: String): UpdateInfo? = withContext(Dispatchers.IO) {
-        if (owner.isBlank() || repo.isBlank()) return@withContext null
+    /**
+     * Получает информацию о последнем релизе GitHub.
+     *
+     * Возвращает null, если репозиторий не указан, релиз отсутствует,
+     * запрос завершился ошибкой или текущая версия уже актуальна.
+     */
+    suspend fun check(
+        owner: String,
+        repo: String,
+        current: String
+    ): UpdateInfo? = withContext(Dispatchers.IO) {
+        if (owner.isBlank() || repo.isBlank()) {
+            return@withContext null
+        }
+
         try {
-            val req = Request.Builder()
+            val request = Request.Builder()
                 .url("https://api.github.com/repos/$owner/$repo/releases/latest")
                 .header("Accept", "application/vnd.github+json")
                 .header("User-Agent", "KemsuX-App")
                 .get()
                 .build()
-            client.newCall(req).execute().use { resp ->
-                if (resp.code == 404) {
-                    Log.d(TAG, "update check: no releases yet")
+
+            client.newCall(request).execute().use { response ->
+                if (response.code == 404) {
                     return@withContext null
                 }
-                if (!resp.isSuccessful) {
-                    Log.w(TAG, "update check HTTP ${resp.code}")
+
+                if (!response.isSuccessful) {
                     return@withContext null
                 }
-                val body = resp.body?.string() ?: return@withContext null
+
+                val body = response.body?.string()
+                    ?: return@withContext null
+
                 val json = JSONObject(body)
                 val tag = json.optString("tag_name", "").trim()
-                if (tag.isBlank()) return@withContext null
-                val info = UpdateInfo(
-                    current = current,
-                    latest = tag,
-                    url = json.optString("html_url", "https://github.com/$owner/$repo/releases").trim(),
-                    notes = json.optString("name", "").trim()
-                )
-                if (!info.hasUpdate) {
-                    Log.d(TAG, "update check: up to date ($current)")
+
+                if (tag.isBlank()) {
                     return@withContext null
                 }
-                info
+
+                val updateInfo = UpdateInfo(
+                    current = current,
+                    latest = tag,
+                    url = json.optString(
+                        "html_url",
+                        "https://github.com/$owner/$repo/releases"
+                    ).trim(),
+                    notes = json.optString("name", "").trim()
+                )
+
+                if (!updateInfo.hasUpdate) {
+                    return@withContext null
+                }
+
+                updateInfo
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "update check failed $e")
+        } catch (_: Exception) {
             null
         }
     }

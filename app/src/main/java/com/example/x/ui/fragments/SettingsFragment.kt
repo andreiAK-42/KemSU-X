@@ -20,7 +20,12 @@ class SettingsFragment : Fragment() {
             setContent {
                 KemsuTheme {
                     // Пересоздаём активити, чтобы новый масштаб шрифта применился сразу
-                    SettingsScreen(vm = vm, onBack = { findNavController().popBackStack() }, onFontChanged = { activity?.recreate() })
+                    SettingsScreen(
+                        vm = vm,
+                        onBack = { findNavController().popBackStack() },
+                        onFontChanged = { activity?.recreate()
+                        }
+                    )
                 }
             }
         }
