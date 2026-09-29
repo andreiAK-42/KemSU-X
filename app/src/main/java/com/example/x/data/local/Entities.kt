@@ -32,6 +32,14 @@ data class LabEntity(
     val changed: Boolean = false
 )
 
+/** Кеш расписания: одна строка (pk=0), обновляется только по кнопке пользователя. */
+@Entity(tableName = "schedule_cache")
+data class ScheduleCacheEntity(
+    @PrimaryKey val pk: Int = 0,
+    val dayInfoJson: String,
+    val scheduleJson: String,
+    val updatedAt: Long
+)
 /** Кеш заданий по курсу: чтобы не ждать сеть при каждом заходе. TTL проверяется по updatedAt. */
 @Entity(tableName = "task_cache", primaryKeys = ["cId", "idx"])
 data class TaskCacheEntity(

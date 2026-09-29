@@ -239,4 +239,48 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    // ---------- Расписание: кеш, обновление только по кнопке ----------
+
+    data class ScheduleUiState(
+        val isLoading: Boolean = false,
+        val data: com.example.x.data.model.ScheduleData? = null,
+        val error: String? = null
+    )
+
+    private val _schedule = MutableStateFlow(ScheduleUiState())
+    val schedule: StateFlow<ScheduleUiState> = _schedule
+
+    /** Только кеш, без сети. Вызывать при открытии экрана. */
+    fun loadSchedule() {
+        viewModelScope.launch {
+            try {
+                val cached = repository.getScheduleCached()
+                Log.d("KEMSU_API", "schedule cache days=${cached?.days?.size}")
+                _schedule.value = ScheduleUiState(false, cached, null)
+            } catch (e: Exception) {
+                Log.w("KEMSU_API", "schedule load failed $e")
+                _schedule.value = ScheduleUiState(false, _schedule.value.data, e.message)
+            }
+        }
+    }
+
+    /** Сеть + сохранение в кеш. Только по кнопке пользователя. */
+    fun refreshSchedule() {
+        viewModelScope.launch {
+            _schedule.value = _schedule.value.copy(isLoading = true, error = null)
+            val res = repository.refreshSchedule()
+            if (res.isSuccess) {
+                _schedule.value = ScheduleUiState(false, res.getOrNull(), null)
+            } else {
+                Log.w("KEMSU_API", "schedule refresh failed ${res.exceptionOrNull()?.message}")
+                // Кеш не затираем — показываем что было
+                _schedule.value = _schedule.value.copy(isLoading = false, error = res.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun clearScheduleError() {
+        _schedule.value = _schedule.value.copy(error = null)
+    }
 }

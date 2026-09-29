@@ -7,8 +7,10 @@ import com.example.x.data.local.CourseEntity
 import com.example.x.data.local.EventEntity
 import com.example.x.data.local.LabEntity
 import com.example.x.data.local.PrefsManager
+import com.example.x.data.local.ScheduleCacheEntity
 import com.example.x.data.local.StudentInfoEntity
 import com.example.x.data.local.TaskCacheEntity
+import com.example.x.data.model.ScheduleData
 import com.example.x.data.local.UserEntity
 import com.example.x.data.model.Course
 import com.example.x.data.model.CourseTask
@@ -19,6 +21,7 @@ import com.example.x.data.remote.ApiConfig
 import com.example.x.data.remote.AuthParser
 import com.example.x.data.remote.KemsuApi
 import com.example.x.data.remote.KemsuParser
+import com.example.x.data.remote.ScheduleParser
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -291,6 +294,40 @@ class CourseRepository(
         }
     }
 
+    /**
+     * Расписание из кеша (без сети). null — если ещё ни разу не обновляли.
+     * Обновление — только по кнопке пользователя через refreshSchedule().
+     */
+    suspend fun getScheduleCached(): ScheduleData? {
+        return try {
+            val cached = db.scheduleCacheDao().get() ?: return null
+            val dayInfo = ScheduleParser.parseDayInfo(cached.dayInfoJson)
+            ScheduleParser.parseSchedule(cached.scheduleJson, dayInfo)?.copy(updatedAt = cached.updatedAt)
+        } catch (e: Exception) {
+            Log.w(TAG, "schedule cache read failed $e")
+            null
+        }
+    }
+
+    /** Расписание из сети (оба endpoint) + сохранение в кеш. Только по просьбе пользователя. */
+    suspend fun refreshSchedule(): Result<ScheduleData> {
+        Log.d(TAG, "schedule refresh from network")
+        return try {
+            val dayInfoRaw = api.fetchCurrentDayInfo().getOrElse { return Result.failure(it) }
+            val tableRaw = api.fetchScheduleTable().getOrElse { return Result.failure(it) }
+            val dayInfo = ScheduleParser.parseDayInfo(dayInfoRaw)
+            val data = ScheduleParser.parseSchedule(tableRaw, dayInfo)
+                ?: return Result.failure(Exception("Не удалось разобрать расписание"))
+            val now = System.currentTimeMillis()
+            db.scheduleCacheDao().upsert(ScheduleCacheEntity(0, dayInfoRaw, tableRaw, now))
+            Log.d(TAG, "schedule saved days=${data.days.size} group=${data.groupName}")
+            Result.success(data.copy(updatedAt = now))
+        } catch (e: Exception) {
+            Log.e(TAG, "schedule refresh error", e)
+            Result.failure(e)
+        }
+    }
+
     /** Полный выход: чистим всё — базу, prefs, куки, фоновые напоминания. */
     suspend fun logoutFull() {
         try {
@@ -299,6 +336,7 @@ class CourseRepository(
             db.eventDao().deleteAll()
             db.userDao().deleteAll()
             db.taskCacheDao().deleteAll()
+            db.scheduleCacheDao().deleteAll()
             db.studentInfoDao().insert(StudentInfoEntity(name = null))
             Log.d(TAG, "LOGOUT DB cleared")
         } catch (e: Exception) { Log.w(TAG, "LOGOUT DB clear failed $e") }

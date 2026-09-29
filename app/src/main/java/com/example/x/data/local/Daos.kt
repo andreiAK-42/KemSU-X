@@ -51,6 +51,16 @@ interface TaskCacheDao {
 }
 
 @Dao
+interface ScheduleCacheDao {
+    @Query("SELECT * FROM schedule_cache WHERE pk = 0 LIMIT 1")
+    suspend fun get(): ScheduleCacheEntity?
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: ScheduleCacheEntity)
+    @Query("DELETE FROM schedule_cache")
+    suspend fun deleteAll()
+}
+
+@Dao
 interface UserDao {
     @Query("SELECT * FROM users LIMIT 1")
     fun observe(): Flow<UserEntity?>

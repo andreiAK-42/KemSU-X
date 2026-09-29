@@ -415,4 +415,37 @@ class KemsuApi(private val appContext: Context? = null) {
     fun clearCookies() {
         cookieManager.cookieStore.removeAll()
     }
+
+    /**
+     * Расписание с api-next.kemsu.ru. Куки (.kemsu.ru) и lenient-SSL клиента
+     * используются те же, заголовки — как в браузере (Origin: eios.kemsu.ru).
+     */
+    private suspend fun fetchScheduleJson(path: String): Result<String> = withContext(Dispatchers.IO) {
+        syncAuthCookies()
+        dedupeCookies()
+        val request = Request.Builder()
+            .url("https://api-next.kemsu.ru$path")
+            .header("User-Agent", userAgent)
+            .header("Accept", "application/json, text/plain, */*")
+            .header("Origin", "https://eios.kemsu.ru")
+            .header("Referer", "https://eios.kemsu.ru/")
+            .get()
+            .build()
+        try {
+            client.newCall(request).execute().use { resp ->
+                val txt = resp.body?.string() ?: ""
+                if (!resp.isSuccessful) return@withContext Result.failure(Exception("HTTP ${resp.code}: ${txt.take(200)}"))
+                Result.success(txt)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchCurrentDayInfo(): Result<String> =
+        fetchScheduleJson("/api/schedule/integration/currentDayInfo")
+
+    // Внимание: на сервере опечатка "shedule" — так и надо.
+    suspend fun fetchScheduleTable(): Result<String> =
+        fetchScheduleJson("/api/schedule/integration/shedule")
 }

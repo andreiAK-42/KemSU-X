@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -42,7 +43,8 @@ fun CoursesScreen(
     onCourseClick: (String?) -> Unit,
     onEventsClick: () -> Unit,
     onLoginClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onScheduleClick: () -> Unit
 ) {
     val state by vm.uiState.collectAsState()
     LaunchedEffect(Unit) { vm.checkUpdates() }
@@ -70,7 +72,8 @@ fun CoursesScreen(
         onCourseClick = onCourseClick,
         onEventsClick = { vm.markEventsRead(); onEventsClick() },
         onLoginClick = onLoginClick,
-        onSettingsClick = onSettingsClick
+        onSettingsClick = onSettingsClick,
+        onScheduleClick = onScheduleClick
     )
 }
 
@@ -100,7 +103,8 @@ fun CoursesContent(
     onCourseClick: (String?) -> Unit,
     onEventsClick: () -> Unit,
     onLoginClick: () -> Unit,
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    onScheduleClick: () -> Unit = {}
 ) {
     // Разрешение на уведомления для фоновых напоминаний
     if (Build.VERSION.SDK_INT >= 33) {
@@ -137,6 +141,7 @@ fun CoursesContent(
                     label = { Text("События") }
                 )
                 NavigationBarItem(selected = false, onClick = onLoginClick, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Выход") })
+                NavigationBarItem(selected = false, onClick = onScheduleClick, icon = { Icon(Icons.Filled.DateRange, null) }, label = { Text("Расписание") })
             }
         }
     ) { pad ->

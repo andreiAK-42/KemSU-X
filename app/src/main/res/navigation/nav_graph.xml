@@ -40,7 +40,15 @@
         <action
             android:id="@+id/action_courses_to_settings"
             app:destination="@id/settingsFragment" />
+        <action
+            android:id="@+id/action_courses_to_schedule"
+            app:destination="@id/scheduleFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/scheduleFragment"
+        android:name="com.example.x.ui.fragments.ScheduleFragment"
+        android:label="Расписание" />
 
     <fragment
         android:id="@+id/settingsFragment"
