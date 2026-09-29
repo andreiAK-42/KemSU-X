@@ -16,15 +16,25 @@ import com.example.x.viewmodel.CoursesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -> Unit = {}) {
     val days by vm.notifyDays.collectAsState()
     val count by vm.notifyCount.collectAsState()
-    SettingsContent(days = days, count = count, onDays = { vm.setNotifyDays(it) }, onCount = { vm.setNotifyCount(it) }, onBack = onBack)
+    val ignoreFont by vm.ignoreFont.collectAsState()
+    SettingsContent(
+        days = days, count = count,
+        onDays = { vm.setNotifyDays(it) }, onCount = { vm.setNotifyCount(it) },
+        ignoreFont = ignoreFont,
+        onIgnoreFont = { vm.setIgnoreFont(it); onFontChanged() },
+        onBack = onBack
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsContent(days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int) -> Unit, onBack: () -> Unit) {
+fun SettingsContent(
+    days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int) -> Unit,
+    ignoreFont: Boolean, onIgnoreFont: (Boolean) -> Unit, onBack: () -> Unit
+) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Настройки") },
@@ -75,6 +85,26 @@ fun SettingsContent(days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int)
                     }
                 }
             }
+            item { Text("Экран", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            item {
+                ElevatedCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Свой размер текста", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Игнорировать системное увеличение шрифта, чтобы не ломалась вёрстка",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = ignoreFont, onCheckedChange = onIgnoreFont)
+                    }
+                }
+            }
         }
     }
 }
@@ -106,5 +136,5 @@ private fun countWord(c: Int): String = when {
 @Preview(showBackground = true, name = "Settings")
 @Composable
 fun SettingsPreview() {
-    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, onBack = {}) }
+    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, ignoreFont = true, onIgnoreFont = {}, onBack = {}) }
 }

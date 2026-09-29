@@ -66,5 +66,11 @@ class PrefsManager(context: Context) {
         prefs.edit().putLong("notified_at_$labId", now).apply()
     }
 
+    /** Игнорировать системное увеличение шрифта (дефолт — да, чтобы не ломалась вёрстка). */
+    fun getIgnoreSystemFont(): Boolean = prefs.getBoolean("ignore_system_font", true)
+    fun setIgnoreSystemFont(v: Boolean) {
+        prefs.edit().putBoolean("ignore_system_font", v).apply()
+    }
+
     fun clear() { prefs.edit().clear().apply() }
 }

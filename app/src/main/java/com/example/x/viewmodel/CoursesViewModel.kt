@@ -66,6 +66,7 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
     private val _labFilter = MutableStateFlow("Все")
     private val _notifyDays = MutableStateFlow(prefs.getNotifyDays())
     private val _notifyCount = MutableStateFlow(prefs.getNotifyCount())
+    private val _ignoreFont = MutableStateFlow(prefs.getIgnoreSystemFont())
 
     fun setLabFilter(f: String) { _labFilter.value = f; Log.d("KEMSU_API", "lab filter=$f") }
 
@@ -85,6 +86,14 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
         _notifyCount.value = prefs.getNotifyCount()
         DeadlineScheduler.schedule(getApplication(), force = true)
         Log.d("KEMSU_API", "notify count=${_notifyCount.value}")
+    }
+
+    /** Игнорировать системное увеличение шрифта (дефолт — да). */
+    val ignoreFont: StateFlow<Boolean> = _ignoreFont
+    fun setIgnoreFont(v: Boolean) {
+        prefs.setIgnoreSystemFont(v)
+        _ignoreFont.value = v
+        Log.d("KEMSU_API", "ignore font=$v")
     }
 
     private val base = combine(
