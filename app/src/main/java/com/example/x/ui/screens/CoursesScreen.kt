@@ -156,7 +156,7 @@ fun CoursesContent(
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text(
-                        "Привет, ${greetingName(firstName, userName)}! 👋",
+                        "Привет, ${firstName}! 👋",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.fillMaxWidth().clickable { showProfile = true }
@@ -351,28 +351,6 @@ fun CoursesContent(
             )
         }
     }
-}
-
-/**
- * Имя для приветствия. С API приходит firstName; запасной вариант — строка
- * "Фамилия Имя Отчество" (именно в таком порядке её собирает сервер),
- * поэтому если первое слово похоже на фамилию — берём второе.
- */
-private fun greetingName(firstName: String?, displayName: String?): String {
-    if (!firstName.isNullOrBlank()) return firstName.trim()
-    val parts = displayName?.split(" ")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
-    if (parts.isEmpty()) return "Студент"
-    if (parts.size >= 2 && looksLikeSurname(parts[0])) return parts[1]
-    return parts[0]
-}
-
-private fun looksLikeSurname(w: String): Boolean {
-    if (w.length < 4) return false
-    val endings = listOf(
-        "ов", "ев", "ёв", "ин", "ын", "ский", "ской", "цкий",
-        "ая", "яя", "ова", "ева", "ёва", "ина", "ых", "их"
-    )
-    return endings.any { w.endsWith(it, ignoreCase = true) }
 }
 
 @Composable
