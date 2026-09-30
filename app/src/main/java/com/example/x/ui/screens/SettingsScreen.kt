@@ -20,11 +20,14 @@ fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -
     val days by vm.notifyDays.collectAsState()
     val count by vm.notifyCount.collectAsState()
     val ignoreFont by vm.ignoreFont.collectAsState()
+    val notificationsOn by vm.notificationsEnabled.collectAsState()
     SettingsContent(
         days = days, count = count,
         onDays = { vm.setNotifyDays(it) }, onCount = { vm.setNotifyCount(it) },
         ignoreFont = ignoreFont,
         onIgnoreFont = { vm.setIgnoreFont(it); onFontChanged() },
+        notificationsOn = notificationsOn,
+        onNotifications = { vm.setNotificationsEnabled(it) },
         onBack = onBack
     )
 }
@@ -33,7 +36,8 @@ fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -
 @Composable
 fun SettingsContent(
     days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int) -> Unit,
-    ignoreFont: Boolean, onIgnoreFont: (Boolean) -> Unit, onBack: () -> Unit
+    ignoreFont: Boolean, onIgnoreFont: (Boolean) -> Unit,
+    notificationsOn: Boolean, onNotifications: (Boolean) -> Unit, onBack: () -> Unit
 ) {
     Scaffold(topBar = {
         TopAppBar(
@@ -50,12 +54,21 @@ fun SettingsContent(
             item {
                 ElevatedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Напоминать о дедлайнах", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            Switch(checked = notificationsOn, onCheckedChange = onNotifications)
+                        }
                         Text("Напоминать о дедлайне за:", style = MaterialTheme.typography.titleMedium)
                         val options = listOf(1, 2, 3, 7)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             options.forEach { d ->
                                 FilterChip(
                                     selected = days == d,
+                                    enabled = notificationsOn,
                                     onClick = { onDays(d) },
                                     label = { Text(if (d == 1) "1 день" else "$d дн.") }
                                 )
@@ -72,6 +85,7 @@ fun SettingsContent(
                             listOf(1, 2, 3, 4).forEach { c ->
                                 FilterChip(
                                     selected = count == c,
+                                    enabled = notificationsOn,
                                     onClick = { onCount(c) },
                                     label = { Text("$c") }
                                 )
@@ -136,5 +150,5 @@ private fun countWord(c: Int): String = when {
 @Preview(showBackground = true, name = "Settings")
 @Composable
 fun SettingsPreview() {
-    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, ignoreFont = true, onIgnoreFont = {}, onBack = {}) }
+    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, ignoreFont = true, onIgnoreFont = {}, notificationsOn = true, onNotifications = {}, onBack = {}) }
 }

@@ -36,6 +36,8 @@ interface LabDao {
     suspend fun deleteAll()
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<LabEntity>)
+    @Query("UPDATE labs SET muted = :muted WHERE id = :id")
+    suspend fun setMuted(id: String, muted: Boolean)
 }
 
 @Dao

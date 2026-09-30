@@ -61,6 +61,8 @@ object DeadlineNotifier {
      * при каждом заходе. Только несданные.
      */
     fun notifyIfNeeded(context: Context, labs: List<Lab>, daysBefore: Int = 1, count: Int = 1) {
+        // Мастер-рубильник из настроек — выключено значит молчим везде
+        if (!com.example.x.data.local.PrefsManager(context).getNotificationsEnabled()) return
         ensureChannel(context)
         val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
         val today = LocalDate.now()
@@ -70,6 +72,7 @@ object DeadlineNotifier {
         val now = System.currentTimeMillis()
         val prefs = com.example.x.data.local.PrefsManager(context)
         labs.forEach { lab ->
+            if (lab.muted) return@forEach // замьючена пользователем — молчим
             try {
                 val deadline = LocalDate.parse(lab.deadline, fmt)
                 val days = ChronoUnit.DAYS.between(today, deadline)
@@ -81,7 +84,7 @@ object DeadlineNotifier {
                         1L -> "завтра"
                         else -> "через $days дн."
                     }
-                    notifyOne(context, playfulTitle(lab, days), "${lab.title} — ${lab.discipline}, сдача $when_ (${lab.deadline})", lab.id.hashCode())
+                    notifyOne(context, playfulTitle(lab, days), "${lab.title} — ${lab.discipline}, сдача $when_ (${lab.deadline})", lab.id.hashCode(), lab.id)
                     prefs.setLastNotified(lab.id, now)
                 }
             } catch (_: Exception) {}
@@ -119,9 +122,9 @@ object DeadlineNotifier {
         return pool[idx]
     }
 
-    private fun notifyOne(context: Context, title: String, text: String, id: Int) {
+    private fun notifyOne(context: Context, title: String, text: String, id: Int, labId: String?) {
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        val n = NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(text)
@@ -132,9 +135,21 @@ object DeadlineNotifier {
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .setVibrate(longArrayOf(0, 500, 200, 500))
-            .build()
+        // Кнопка «Мут» прямо в уведомлении — мьютит именно эту лабу
+        if (labId != null) {
+            val muteIntent = android.content.Intent(context, MuteReceiver::class.java).apply {
+                action = MuteReceiver.ACTION_MUTE
+                putExtra(MuteReceiver.EXTRA_LAB_ID, labId)
+                putExtra(MuteReceiver.EXTRA_NOTIF_ID, id)
+            }
+            val pi = android.app.PendingIntent.getBroadcast(
+                context, id, muteIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(0, "Мут", pi)
+        }
         try {
-            NotificationManagerCompat.from(context).notify(id, n)
+            NotificationManagerCompat.from(context).notify(id, builder.build())
         } catch (_: SecurityException) {}
     }
 }

@@ -47,9 +47,9 @@ class CourseRepository(
         db.courseDao().observeAll().first().map { it.toModel() }
 
     suspend fun getLabsOnce(): List<Lab> =
-        db.labDao().getAll().map { e -> Lab(e.id, e.discipline, e.title, e.deadline, e.status, e.points, e.maxPoints, e.changed) }
+        db.labDao().getAll().map { e -> Lab(e.id, e.discipline, e.title, e.deadline, e.status, e.points, e.maxPoints, e.changed, e.muted) }
 
-    fun observeLabs(): Flow<List<Lab>> = db.labDao().observeAll().map { it.map { e -> Lab(e.id, e.discipline, e.title, e.deadline, e.status, e.points, e.maxPoints, e.changed) } }
+    fun observeLabs(): Flow<List<Lab>> = db.labDao().observeAll().map { it.map { e -> Lab(e.id, e.discipline, e.title, e.deadline, e.status, e.points, e.maxPoints, e.changed, e.muted) } }
     fun observeUser(): Flow<User?> = db.userDao().observe().map { it?.toModel() }
     fun observeEvents(): Flow<List<Event>> = db.eventDao().observeAll().map { it.map { e -> Event(e.discipline, e.text, e.date) } }
     fun observeUnreadCount(): Flow<Int> = db.eventDao().unreadCount()
@@ -135,7 +135,7 @@ class CourseRepository(
         Log.d(TAG, "DB saved courses ${courses.size} filter=$filter")
     }
     private suspend fun saveLabs(labs: List<Lab>) {
-        db.labDao().deleteAll(); db.labDao().insertAll(labs.map { LabEntity(it.id, it.discipline, it.title, it.deadline, it.status, it.points, it.maxPoints, it.changed) })
+        db.labDao().deleteAll(); db.labDao().insertAll(labs.map { LabEntity(it.id, it.discipline, it.title, it.deadline, it.status, it.points, it.maxPoints, it.changed, it.muted) })
         Log.d(TAG, "DB saved labs ${labs.size} changed=${labs.count { it.changed }}")
     }
     private suspend fun saveUser(user: User) {
@@ -176,7 +176,7 @@ class CourseRepository(
             val now = System.currentTimeMillis()
             db.taskCacheDao().deleteByCId(cId)
             db.taskCacheDao().upsertAll(tasks.mapIndexed { i, t ->
-                TaskCacheEntity(cId, i, t.title, t.requiresSubmission, t.comment, t.controlDate, t.maxBall, t.result, t.status, t.flag, now)
+                TaskCacheEntity(cId, i, t.title, t.requiresSubmission, t.comment, t.controlDate, t.maxBall, t.result, t.status, t.flag, t.section, now)
             })
             Log.d(TAG, "tasks cache saved c_id=$cId n=${tasks.size}")
         } catch (e: Exception) { Log.w(TAG, "tasks cache save failed $e") }
@@ -251,7 +251,8 @@ class CourseRepository(
                     val status = if (isDone) "Сдано" else t.status.ifBlank { "Не сдано" }
                     val points = t.result.toIntOrNull() ?: 0
                     val old = oldById[id]
-                    // Новая лаба или поменялись статус/баллы/дедлайн/максимум/название
+                    // Новая лаба или поменялись статус/баллы/дедлайн/максимум/название.
+                    // Мут переживает пересканы: его ставит только пользователь.
                     val changed = old == null ||
                         old.status != status || old.points != points || old.deadline != deadline ||
                         old.maxPoints != t.maxBall || old.title != t.title
@@ -263,14 +264,15 @@ class CourseRepository(
                         status = status,
                         points = points,
                         maxPoints = t.maxBall,
-                        changed = changed
+                        changed = changed,
+                        muted = old?.muted ?: false
                     )
                 }
             }
             saveLabs(labs)
-            // В события — лабы с дедлайном в ближайшие 7 дней (несданные), сортировка по дате
+            // В события — немьюченные лабы с дедлайном в ближайшие 7 дней (несданные)
             val today = java.time.LocalDate.now()
-            val soon = labs.mapNotNull { lab ->
+            val soon = labs.filter { !it.muted }.mapNotNull { lab ->
                 try {
                     val d = java.time.LocalDate.parse(lab.deadline, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                     val days = java.time.temporal.ChronoUnit.DAYS.between(today, d)
@@ -353,5 +355,5 @@ class CourseRepository(
     private fun CourseEntity.toModel() = Course(num, discipline, report, year, hours, period, teacher, points, cId)
     private fun Course.toEntity(filter: String) = CourseEntity(num = num, discipline = discipline, report = report, year = year, hours = hours, period = period, teacher = teacher, points = points, cId = cId, studyYearFilter = filter)
     private fun UserEntity.toModel() = User(id = id, name = name, group = group, faculty = faculty, avatarUrl = avatarUrl)
-    private fun TaskCacheEntity.toTask() = CourseTask(title, requires, comment, controlDate, maxBall, result, status, flag)
+    private fun TaskCacheEntity.toTask() = CourseTask(title, requires, comment, controlDate, maxBall, result, status, flag, section)
 }

@@ -14,7 +14,7 @@ android {
         minSdk = 29
         targetSdk = 36
         versionCode = 1
-        versionName = "1.3"
+        versionName = "1.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -25,6 +25,7 @@ android {
     }
     kotlinOptions { jvmTarget = "11" }
     buildFeatures { compose = true; buildConfig = true }
+    testOptions { unitTests.isReturnDefaultValues = true }
 
     applicationVariants.all {
         val variant = this

@@ -21,7 +21,9 @@ data class Lab(
     val points: Int,
     val maxPoints: Int = 10,
     /** Изменилась относительно прошлого захода (новая или поменялись статус/баллы/дедлайн). */
-    val changed: Boolean = false
+    val changed: Boolean = false,
+    /** Замьючена пользователем: уведомлений и событий по ней нет. */
+    val muted: Boolean = false
 )
 
 /** Категория лабы для фильтра и цвета на главной. */

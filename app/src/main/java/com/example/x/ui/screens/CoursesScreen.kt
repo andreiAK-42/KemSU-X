@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.DateRange
@@ -64,6 +63,7 @@ fun CoursesScreen(
         scan = state.scan,
         lastScanLabel = state.lastScanLabel,
         labFilter = state.labFilter,
+        offline = state.offline,
         onLabFilter = { vm.setLabFilter(it) },
         onYear = { vm.setYear(it) },
         onRefresh = { vm.refresh() },
@@ -71,7 +71,7 @@ fun CoursesScreen(
         onClearError = { vm.clearError() },
         onCourseClick = onCourseClick,
         onEventsClick = { vm.markEventsRead(); onEventsClick() },
-        onLoginClick = onLoginClick,
+        onLogout = { vm.logoutFull { onLoginClick() } },
         onSettingsClick = onSettingsClick,
         onScheduleClick = onScheduleClick
     )
@@ -95,6 +95,7 @@ fun CoursesContent(
     scan: com.example.x.viewmodel.ScanProgress = com.example.x.viewmodel.ScanProgress(),
     lastScanLabel: String = "",
     labFilter: String = "Все",
+    offline: Boolean = false,
     onLabFilter: (String) -> Unit = {},
     onYear: (String) -> Unit,
     onRefresh: () -> Unit,
@@ -102,7 +103,7 @@ fun CoursesContent(
     onClearError: () -> Unit,
     onCourseClick: (String?) -> Unit,
     onEventsClick: () -> Unit,
-    onLoginClick: () -> Unit,
+    onLogout: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onScheduleClick: () -> Unit = {}
 ) {
@@ -130,6 +131,7 @@ fun CoursesContent(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(selected = true, onClick = {}, icon = { Icon(Icons.Filled.Home, null) }, label = { Text("Главная") })
+                NavigationBarItem(selected = false, onClick = onScheduleClick, icon = { Icon(Icons.Filled.DateRange, null) }, label = { Text("Расписание") })
                 NavigationBarItem(
                     selected = false,
                     onClick = onEventsClick,
@@ -140,11 +142,10 @@ fun CoursesContent(
                     },
                     label = { Text("События") }
                 )
-                NavigationBarItem(selected = false, onClick = onLoginClick, icon = { Icon(Icons.Filled.Person, null) }, label = { Text("Выход") })
-                NavigationBarItem(selected = false, onClick = onScheduleClick, icon = { Icon(Icons.Filled.DateRange, null) }, label = { Text("Расписание") })
             }
         }
     ) { pad ->
+        var showProfile by remember { mutableStateOf(false) }
         PullToRefreshBox(
             isRefreshing = isLoading,
             onRefresh = onRefreshAll,
@@ -152,23 +153,13 @@ fun CoursesContent(
         ) {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (avatarUrl != null) {
-                                AsyncImage(model = avatarUrl, contentDescription = null, modifier = Modifier.size(56.dp).clip(CircleShape))
-                            } else {
-                                Box(Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Filled.Person, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(userName ?: "Студент", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(userGroup?.ifBlank { "Группа не указана" } ?: "ИБ-21 • ИФН", style = MaterialTheme.typography.bodySmall)
-                                Text("Кемеровский государственный университет", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
+                    val firstName = userName?.split(" ")?.firstOrNull()?.ifBlank { null } ?: "Студент"
+                    Text(
+                        "Привет, $firstName! 👋",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth().clickable { showProfile = true }
+                    )
                 }
                 if (update?.hasUpdate == true) {
                     item {
@@ -184,6 +175,20 @@ fun CoursesContent(
                                     try { uriHandler.openUri(update.url) } catch (_: Exception) {}
                                 }) { Text("Открыть на GitHub") }
                             }
+                        }
+                    }
+                }
+                if (offline) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "Офлайн-режим: сервер недоступен, показаны сохранённые данные",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
                 }
@@ -217,7 +222,9 @@ fun CoursesContent(
                                     )
                                     LinearProgressIndicator(
                                         progress = { if (scan.total > 0) scan.done.toFloat() / scan.total else 0f },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        // Убираем точку-ограничитель на конце трека
+                                        drawStopIndicator = {}
                                     )
                                 }
                             }
@@ -321,6 +328,27 @@ fun CoursesContent(
                 }
             }
         }
+        if (showProfile) {
+            AlertDialog(
+                onDismissRequest = { showProfile = false },
+                title = { Text(userName ?: "Студент") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (avatarUrl != null) {
+                            AsyncImage(model = avatarUrl, contentDescription = null, modifier = Modifier.size(64.dp).clip(CircleShape))
+                        }
+                        Text(userGroup?.ifBlank { "Группа не указана" } ?: "Группа не указана", style = MaterialTheme.typography.bodyMedium)
+                        Text("Кемеровский государственный университет", style = MaterialTheme.typography.labelSmall)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showProfile = false; onLogout() }) { Text("Выйти") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showProfile = false }) { Text("Закрыть") }
+                }
+            )
+        }
     }
 }
 
@@ -339,7 +367,6 @@ fun CourseCard(c: Course, onClick: (String?) -> Unit) {
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text("Баллы: ${c.points}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                if (c.cId != null) Text("c_id: ${c.cId}", style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -370,7 +397,7 @@ fun CoursesScreenPreview() {
             availableYears = listOf("2023-2024","2024-2025","2025-2026","2026-2027"),
             isLoading = false, error = null, unreadEvents = 3,
             onYear = {}, onRefresh = {}, onRefreshAll = {}, onClearError = {},
-            onCourseClick = {}, onEventsClick = {}, onLoginClick = {}
+            onCourseClick = {}, onEventsClick = {}
         )
     }
 }
@@ -389,7 +416,7 @@ fun CoursesLoadingPreview() {
             availableYears = listOf("2023-2024","2024-2025","2025-2026","2026-2027"),
             isLoading = true, error = null, unreadEvents = 0,
             onYear = {}, onRefresh = {}, onRefreshAll = {}, onClearError = {},
-            onCourseClick = {}, onEventsClick = {}, onLoginClick = {}
+            onCourseClick = {}, onEventsClick = {}
         )
     }
 }

@@ -29,7 +29,8 @@ data class LabEntity(
     val status: String,
     val points: Int,
     val maxPoints: Int,
-    val changed: Boolean = false
+    val changed: Boolean = false,
+    val muted: Boolean = false
 )
 
 /** Кеш расписания: одна строка (pk=0), обновляется только по кнопке пользователя. */
@@ -53,6 +54,7 @@ data class TaskCacheEntity(
     val result: String,
     val status: String,
     val flag: String,
+    val section: String = "",
     val updatedAt: Long
 )
 

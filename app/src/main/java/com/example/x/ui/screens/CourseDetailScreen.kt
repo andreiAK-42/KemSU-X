@@ -59,6 +59,11 @@ fun CourseDetailContent(
                 Text("Курс не найден в SQLite. c_id=$cId")
             }
         } else {
+            // Группировка по разделам из серых строк ("Теоретические основы..." и т.п.).
+            // Если разделов нет — плоский список как раньше.
+            val grouped = remember(tasks) { tasks.groupBy { it.section } }
+            val expandedStates = remember { mutableStateMapOf<String, Boolean>() }
+            fun isExpanded(s: String) = expandedStates[s] ?: true
             LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     ElevatedCard(Modifier.fillMaxWidth()) {
@@ -92,37 +97,76 @@ fun CourseDetailContent(
                 if (tasks.isEmpty() && !loading && error == null) {
                     item { Text("Нет заданий. Нажми Обновить. Запрос: POST /proc/stud/course_st/tasks_st.htm c_id=$cId (см. Logcat KEMSU_API)", style = MaterialTheme.typography.bodySmall) }
                 }
-                items(tasks) { t ->
-                    ElevatedCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(t.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AssistChip(onClick = {}, label = { Text(if (t.requiresSubmission == "да") "Требуется отправка" else t.requiresSubmission) })
-                                val statusColor = when (t.flag) {
-                                    "3" -> Color(0xFF2E7D32) // Оценено зеленый
-                                    "13", "" -> Color(0xFFC62828) // Просмотрено/Не просмотрено красный
-                                    "0", "1" -> Color(0xFF1565C0) // синий
-                                    else -> MaterialTheme.colorScheme.primary
+                // Группировка уже посчитана выше (grouped / isExpanded).
+                // Если разделов нет — плоский список как раньше.
+                if (grouped.size == 1 && grouped.keys.first().isBlank()) {
+                    items(tasks) { t -> TaskCard(t, uriHandler) }
+                } else {
+                    grouped.forEach { (section, sectionTasks) ->
+                        val expanded = isExpanded(section)
+                        item(key = "sec-$section") {
+                            ElevatedCard(
+                                onClick = { expandedStates[section] = !expanded },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                            ) {
+                                Row(
+                                    Modifier.padding(12.dp).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        section.ifBlank { "Задания" },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text("${sectionTasks.size} шт. ${if (expanded) "▾" else "▸"}")
                                 }
-                                AssistChip(onClick = {}, label = { Text(t.status, color = statusColor) })
                             }
-                            if (t.comment.isNotBlank()) {
-                                SelectionContainer {
-                                    TextButton( onClick = { if (t.comment.startsWith("http")) try { uriHandler.openUri(t.comment) } catch (_: Exception) {} }, contentPadding = PaddingValues(0.dp), shape = RectangleShape) {
-                                        val comment = if (t.comment.length > 100) "${t.comment.take(100)}..." else t.comment
-                                        Text(comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                }
-                            }
-                            HorizontalDivider()
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Column { Text("Контрольная", style = MaterialTheme.typography.labelSmall); Text(t.controlDate, style = MaterialTheme.typography.bodySmall) }
-                                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) { Text("Макс. балл", style = MaterialTheme.typography.labelSmall); Text(t.maxBall.toString(), fontWeight = FontWeight.Bold) }
-                                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) { Text("Результат", style = MaterialTheme.typography.labelSmall); Text(t.result.ifBlank { "—" }, fontWeight = FontWeight.Bold, color = if (t.result.isNotBlank()) Color(0xFF2E7D32) else Color.Gray) }
-                            }
+                        }
+                        if (expanded) {
+                            items(sectionTasks, key = { t -> "${t.title}-${t.controlDate}" }) { t -> TaskCard(t, uriHandler) }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun TaskCard(t: CourseTask, uriHandler: androidx.compose.ui.platform.UriHandler) {
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(t.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AssistChip(onClick = {}, label = { Text(if (t.requiresSubmission == "да") "Требуется отправка" else t.requiresSubmission) })
+                val statusColor = when (t.flag) {
+                    "3" -> Color(0xFF2E7D32) // Оценено зеленый
+                    "13", "" -> Color(0xFFC62828) // Просмотрено/Не просмотрено красный
+                    "0", "1" -> Color(0xFF1565C0) // синий
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                AssistChip(onClick = {}, label = { Text(t.status, color = statusColor) })
+                // У задания может не быть дедлайна — это не лаба, помечаем отдельным чипом
+                if (t.controlDate.isBlank()) {
+                    AssistChip(onClick = {}, label = { Text("Без дедлайна") })
+                }
+            }
+            if (t.comment.isNotBlank()) {
+                SelectionContainer {
+                    TextButton( onClick = { if (t.comment.startsWith("http")) try { uriHandler.openUri(t.comment) } catch (_: Exception) {} }, contentPadding = PaddingValues(0.dp), shape = RectangleShape) {
+                        val comment = if (t.comment.length > 100) "${t.comment.take(100)}..." else t.comment
+                        Text(comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column { Text("Контрольная", style = MaterialTheme.typography.labelSmall); Text(t.controlDate.ifBlank { "—" }, style = MaterialTheme.typography.bodySmall) }
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) { Text("Макс. балл", style = MaterialTheme.typography.labelSmall); Text(t.maxBall.toString(), fontWeight = FontWeight.Bold) }
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) { Text("Результат", style = MaterialTheme.typography.labelSmall); Text(t.result.ifBlank { "—" }, fontWeight = FontWeight.Bold, color = if (t.result.isNotBlank()) Color(0xFF2E7D32) else Color.Gray) }
             }
         }
     }

@@ -66,6 +66,12 @@ class PrefsManager(context: Context) {
         prefs.edit().putLong("notified_at_$labId", now).apply()
     }
 
+    /** Мастер-переключатель уведомлений. Дефолт — включены. */
+    fun getNotificationsEnabled(): Boolean = prefs.getBoolean("notifications_enabled", true)
+    fun setNotificationsEnabled(v: Boolean) {
+        prefs.edit().putBoolean("notifications_enabled", v).apply()
+    }
+
     /** Игнорировать системное увеличение шрифта (дефолт — да, чтобы не ломалась вёрстка). */
     fun getIgnoreSystemFont(): Boolean = prefs.getBoolean("ignore_system_font", true)
     fun setIgnoreSystemFont(v: Boolean) {

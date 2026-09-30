@@ -21,7 +21,7 @@ class DeadlineWorker(appContext: Context, params: WorkerParameters) : CoroutineW
     override suspend fun doWork(): Result {
         return try {
             val labs = AppDatabase.get(applicationContext).labDao().getAll().map { e ->
-                Lab(e.id, e.discipline, e.title, e.deadline, e.status, e.points, e.maxPoints, e.changed)
+                Lab(e.id, e.discipline, e.title, e.deadline, e.status, e.points, e.maxPoints, e.changed, e.muted)
             }
             Log.d("KEMSU_API", "DeadlineWorker labs=${labs.size}")
             if (labs.isNotEmpty()) {
@@ -58,6 +58,15 @@ object DeadlineScheduler {
             Log.d("KEMSU_API", "DeadlineScheduler every ${intervalMin}min force=$force")
         } catch (e: Exception) {
             Log.w("KEMSU_API", "DeadlineScheduler failed $e")
+        }
+    }
+
+    fun cancel(context: Context) {
+        try {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            Log.d("KEMSU_API", "DeadlineScheduler cancelled")
+        } catch (e: Exception) {
+            Log.w("KEMSU_API", "DeadlineScheduler cancel failed $e")
         }
     }
 }
