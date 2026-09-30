@@ -76,7 +76,7 @@ object DeadlineNotifier {
             try {
                 val deadline = LocalDate.parse(lab.deadline, fmt)
                 val days = ChronoUnit.DAYS.between(today, deadline)
-                if (days in 0..window && lab.status != "Сдано") {
+                if (days in 0..window && lab.status != "Сдано" && lab.status != "На проверке") {
                     // Уже напоминали недавно — пропускаем, следующий слот позже
                     if (now - prefs.getLastNotified(lab.id) < intervalMs * 0.9) return@forEach
                     val when_ = when (days) {
