@@ -140,7 +140,8 @@ fun TaskCard(t: CourseTask, uriHandler: androidx.compose.ui.platform.UriHandler)
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(t.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // FlowRow вместо Row: на узком экране чипсы переносятся, а не сплющиваются в столбик
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(onClick = {}, label = { Text(if (t.requiresSubmission == "да") "Требуется отправка" else t.requiresSubmission) })
                 val statusColor = when (t.flag) {
                     "3" -> Color(0xFF2E7D32) // Оценено зеленый

@@ -51,6 +51,7 @@ fun CoursesScreen(
         courses = state.courses,
         labs = state.homeLabs,
         userName = state.user?.name ?: state.studentName,
+        firstName = state.user?.firstName,
         userGroup = state.user?.group,
         avatarUrl = state.user?.avatarUrl,
         studyYear = state.studyYear,
@@ -83,6 +84,7 @@ fun CoursesContent(
     courses: List<Course>,
     labs: List<Lab>,
     userName: String?,
+    firstName: String? = null,
     userGroup: String?,
     avatarUrl: String?,
     studyYear: String,
@@ -153,9 +155,8 @@ fun CoursesContent(
         ) {
             LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
-                    val firstName = userName?.split(" ")?.firstOrNull()?.ifBlank { null } ?: "Студент"
                     Text(
-                        "Привет, $firstName! 👋",
+                        "Привет, ${greetingName(firstName, userName)}! 👋",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.fillMaxWidth().clickable { showProfile = true }
@@ -352,9 +353,30 @@ fun CoursesContent(
     }
 }
 
+/**
+ * Имя для приветствия. С API приходит firstName; запасной вариант — строка
+ * "Фамилия Имя Отчество" (именно в таком порядке её собирает сервер),
+ * поэтому если первое слово похоже на фамилию — берём второе.
+ */
+private fun greetingName(firstName: String?, displayName: String?): String {
+    if (!firstName.isNullOrBlank()) return firstName.trim()
+    val parts = displayName?.split(" ")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
+    if (parts.isEmpty()) return "Студент"
+    if (parts.size >= 2 && looksLikeSurname(parts[0])) return parts[1]
+    return parts[0]
+}
+
+private fun looksLikeSurname(w: String): Boolean {
+    if (w.length < 4) return false
+    val endings = listOf(
+        "ов", "ев", "ёв", "ин", "ын", "ский", "ской", "цкий",
+        "ая", "яя", "ова", "ева", "ёва", "ина", "ых", "их"
+    )
+    return endings.any { w.endsWith(it, ignoreCase = true) }
+}
+
 @Composable
-fun CourseCard(c: Course, onClick: (String?) -> Unit) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth().clickable { onClick(c.cId) }) {
+fun CourseCard(c: Course, onClick: (String?) -> Unit) {    ElevatedCard(modifier = Modifier.fillMaxWidth().clickable { onClick(c.cId) }) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${c.num}. ${c.discipline}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))

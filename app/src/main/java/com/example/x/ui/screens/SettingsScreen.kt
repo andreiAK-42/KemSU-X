@@ -64,7 +64,8 @@ fun SettingsContent(
                         }
                         Text("Напоминать о дедлайне за:", style = MaterialTheme.typography.titleMedium)
                         val options = listOf(1, 2, 3, 7)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // FlowRow: при крупном шрифте чипсы переносятся, а не вытягиваются в высоту
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             options.forEach { d ->
                                 FilterChip(
                                     selected = days == d,
@@ -81,7 +82,7 @@ fun SettingsContent(
                         )
                         HorizontalDivider()
                         Text("Сколько раз напомнить:", style = MaterialTheme.typography.titleMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(1, 2, 3, 4).forEach { c ->
                                 FilterChip(
                                     selected = count == c,
