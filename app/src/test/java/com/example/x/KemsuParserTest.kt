@@ -1,5 +1,6 @@
 package com.example.x
 
+import com.example.x.data.remote.AuthParser
 import com.example.x.data.remote.KemsuParser
 import org.junit.Assert.*
 import org.junit.Test
@@ -57,5 +58,17 @@ class KemsuParserTest {
         // Задание без дедлайна парсится, но дата пустая
         assertEquals("А2 Без дедлайна", tasks[1].title)
         assertTrue(tasks[1].controlDate.isBlank())
+    }
+
+    @Test
+    fun loginResponseRealPayload_namesParsed() {
+        // Точный формат POST /api/security/auth/auth: id числом, ФИО строками
+        val json = """{"success":true,"userInfo":{"id":38341,"login":"stud81204","firstName":"Иван","lastName":"Иванов","middleName":"Иванович","email":"почта@gmail.com","phone":null,"job":null,"org":null,"town":"город","userType":"обучающийся","blocked":0},"accessToken":"a","refreshToken":"r"}"""
+        val (user, access) = AuthParser.parseLoginResponse(json).getOrThrow()
+        assertEquals("38341", user.id)
+        assertEquals("Иван", user.firstName)
+        assertEquals("Иванов", user.lastName)
+        assertEquals("Иванов Иван Иванович", user.name)
+        assertEquals("a", access)
     }
 }

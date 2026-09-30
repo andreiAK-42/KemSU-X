@@ -139,7 +139,13 @@ class CourseRepository(
         Log.d(TAG, "DB saved labs ${labs.size} changed=${labs.count { it.changed }}")
     }
     private suspend fun saveUser(user: User) {
-        db.userDao().deleteAll(); db.userDao().insert(UserEntity(user.id.ifBlank { "1" }, user.name, user.group, user.faculty, user.avatarUrl))
+        db.userDao().deleteAll()
+        db.userDao().insert(
+            UserEntity(
+                user.id.ifBlank { "1" }, user.name, user.group, user.faculty, user.avatarUrl,
+                user.firstName, user.lastName, user.middleName, user.login, user.email
+            )
+        )
         db.studentInfoDao().insert(StudentInfoEntity(name = user.name))
         Log.d(TAG, "DB saved user $user")
     }
@@ -354,6 +360,9 @@ class CourseRepository(
 
     private fun CourseEntity.toModel() = Course(num, discipline, report, year, hours, period, teacher, points, cId)
     private fun Course.toEntity(filter: String) = CourseEntity(num = num, discipline = discipline, report = report, year = year, hours = hours, period = period, teacher = teacher, points = points, cId = cId, studyYearFilter = filter)
-    private fun UserEntity.toModel() = User(id = id, name = name, group = group, faculty = faculty, avatarUrl = avatarUrl)
+    private fun UserEntity.toModel() = User(
+        id = id, name = name, group = group, faculty = faculty, avatarUrl = avatarUrl,
+        firstName = firstName, lastName = lastName, middleName = middleName, login = login, email = email
+    )
     private fun TaskCacheEntity.toTask() = CourseTask(title, requires, comment, controlDate, maxBall, result, status, flag, section)
 }

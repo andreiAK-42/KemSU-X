@@ -73,7 +73,12 @@ data class UserEntity(
     val name: String,
     val group: String,
     val faculty: String,
-    val avatarUrl: String?
+    val avatarUrl: String?,
+    val firstName: String = "",
+    val lastName: String = "",
+    val middleName: String = "",
+    val login: String = "",
+    val email: String = ""
 )
 
 @Entity(tableName = "student_info")
