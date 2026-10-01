@@ -438,16 +438,55 @@ class CourseRepository(
             else -> "через $days дн."
         }
 
-    /** Расписание из кеша без сети. */
-    suspend fun getScheduleCached(): ScheduleData? {
+    /**
+     * Расписание из кеша без сети.
+     * День/неделя пересчитываются ЛОКАЛЬНО по якорю из кеша (startOfWeek + weekNum),
+     * поэтому шапка и чипс дня всегда про сегодня, даже без кнопки обновления.
+     * oddOverride: null = авто (текущая чётность), true/false = показать другую неделю.
+     */
+    suspend fun getScheduleCached(oddOverride: Boolean? = null): ScheduleData? {
         return try {
             val cached = db.scheduleCacheDao().get() ?: return null
-            val dayInfo = ScheduleParser.parseDayInfo(cached.dayInfoJson)
+            val base = ScheduleParser.parseDayInfo(cached.dayInfoJson) ?: return null
+            val fresh = freshDayInfo(base, java.time.LocalDate.now())
+            val effective = if (oddOverride == null) fresh
+            else fresh.copy(weekType = if (oddOverride) "нечетная" else "четная")
 
-            ScheduleParser.parseSchedule(cached.scheduleJson, dayInfo)
+            ScheduleParser.parseSchedule(cached.scheduleJson, effective)
                 ?.copy(updatedAt = cached.updatedAt)
         } catch (_: Exception) {
             null
+        }
+    }
+
+    /**
+     * Якорь: startOfWeek кеша = понедельник недели cached.weekNum.
+     * Отсюда неделя 1, затем текущие номер/чётность/даты. Работает офлайн вечно.
+     */
+    private fun freshDayInfo(
+        cached: com.example.x.data.model.ScheduleDayInfo,
+        today: java.time.LocalDate
+    ): com.example.x.data.model.ScheduleDayInfo {
+        return try {
+            val fmt = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+            val anchorMonday = java.time.LocalDate.parse(cached.startOfWeek, fmt)
+            val week1Monday = anchorMonday.minusDays((cached.weekNum - 1) * 7L)
+            val mondayThisWeek = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            val weeksSince = java.time.temporal.ChronoUnit.WEEKS.between(week1Monday, mondayThisWeek)
+            val curWeekNum = (weeksSince + 1).coerceAtLeast(1).toInt()
+            val odd = curWeekNum % 2 == 1
+            val names = listOf("", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье")
+            cached.copy(
+                weekNum = curWeekNum,
+                weekType = if (odd) "нечетная" else "четная",
+                currentDate = today.format(fmt),
+                currentDay = names[today.dayOfWeek.value],
+                currentDayNum = today.dayOfWeek.value,
+                startOfWeek = mondayThisWeek.format(fmt),
+                endOfWeek = mondayThisWeek.plusDays(6).format(fmt)
+            )
+        } catch (e: Exception) {
+            cached
         }
     }
 

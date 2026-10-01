@@ -273,7 +273,9 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
     data class ScheduleUiState(
         val isLoading: Boolean = false,
         val data: com.example.x.data.model.ScheduleData? = null,
-        val error: String? = null
+        val error: String? = null,
+        /** null = авто (текущая чётность), true/false = принудительно нечётная/чётная */
+        val parityOverride: Boolean? = null
     )
 
     private val _schedule = MutableStateFlow(ScheduleUiState())
@@ -283,14 +285,20 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
     fun loadSchedule() {
         viewModelScope.launch {
             try {
-                val cached = repository.getScheduleCached()
+                val cached = repository.getScheduleCached(_schedule.value.parityOverride)
                 Log.d("KEMSU_API", "schedule cache days=${cached?.days?.size}")
-                _schedule.value = ScheduleUiState(false, cached, null)
+                _schedule.value = _schedule.value.copy(isLoading = false, data = cached, error = null)
             } catch (e: Exception) {
                 Log.w("KEMSU_API", "schedule load failed $e")
-                _schedule.value = ScheduleUiState(false, _schedule.value.data, e.message)
+                _schedule.value = _schedule.value.copy(isLoading = false, error = e.message)
             }
         }
+    }
+
+    /** Переключатель чётности: посмотреть другую неделю без сети, из того же кеша. */
+    fun setScheduleParity(odd: Boolean?) {
+        _schedule.value = _schedule.value.copy(parityOverride = odd)
+        loadSchedule()
     }
 
     /** Сеть + сохранение в кеш. Только по кнопке пользователя. */
@@ -299,7 +307,9 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
             _schedule.value = _schedule.value.copy(isLoading = true, error = null)
             val res = repository.refreshSchedule()
             if (res.isSuccess) {
-                _schedule.value = ScheduleUiState(false, res.getOrNull(), null)
+                // Перечитываем через кеш, чтобы применить пересчёт недели и оверрайд чётности
+                val cached = repository.getScheduleCached(_schedule.value.parityOverride)
+                _schedule.value = _schedule.value.copy(isLoading = false, data = cached, error = null)
             } else {
                 Log.w("KEMSU_API", "schedule refresh failed ${res.exceptionOrNull()?.message}")
                 // Кеш не затираем — показываем что было

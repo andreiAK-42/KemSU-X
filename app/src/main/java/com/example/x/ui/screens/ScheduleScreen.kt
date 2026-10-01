@@ -31,6 +31,8 @@ fun ScheduleScreen(vm: CoursesViewModel, onBack: () -> Unit) {
         data = state.data,
         isLoading = state.isLoading,
         error = state.error,
+        parityOverride = state.parityOverride,
+        onParity = { vm.setScheduleParity(it) },
         onRefresh = { vm.refreshSchedule() },
         onClearError = { vm.clearScheduleError() },
         onBack = onBack
@@ -43,6 +45,8 @@ fun ScheduleContent(
     data: ScheduleData?,
     isLoading: Boolean,
     error: String?,
+    parityOverride: Boolean? = null,
+    onParity: (Boolean?) -> Unit = {},
     onRefresh: () -> Unit,
     onClearError: () -> Unit,
     onBack: () -> Unit
@@ -74,7 +78,8 @@ fun ScheduleContent(
                         ElevatedCard(Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(
-                                    "Неделя ${info.weekNum} • ${info.weekType}",
+                                    "Неделя ${info.weekNum} • ${info.weekType}" +
+                                        if (parityOverride != null) " (показана ${if (parityOverride) "нечётная" else "чётная"})" else "",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -86,6 +91,33 @@ fun ScheduleContent(
                                     "Группа ${data.groupName}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        // Свич чётности: на чётной посмотреть нечётную и наоборот, без сети
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            item { Text("Неделя:") }
+                            item {
+                                FilterChip(
+                                    selected = parityOverride == null,
+                                    onClick = { onParity(null) },
+                                    label = { Text("Авто") }
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = parityOverride == false,
+                                    onClick = { onParity(false) },
+                                    label = { Text("Чётная") }
+                                )
+                            }
+                            item {
+                                FilterChip(
+                                    selected = parityOverride == true,
+                                    onClick = { onParity(true) },
+                                    label = { Text("Нечётная") }
                                 )
                             }
                         }
