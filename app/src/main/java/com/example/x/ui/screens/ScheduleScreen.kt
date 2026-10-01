@@ -51,10 +51,12 @@ fun ScheduleContent(
     onClearError: () -> Unit,
     onBack: () -> Unit
 ) {
-    var selectedDay by remember(data) {
-        mutableStateOf(data?.dayInfo?.currentDayNum?.takeIf { n -> data.days.any { it.dayNum == n } }
-            ?: data?.days?.firstOrNull()?.dayNum ?: 0)
-    }
+    // День по умолчанию — текущий, но только при заходе на экран.
+    // Выбор пользователя живёт отдельно и НЕ сбрасывается при смене чётности.
+    var userDay by remember { mutableStateOf<Int?>(null) }
+    val defaultDay = data?.dayInfo?.currentDayNum?.takeIf { n -> data.days.any { it.dayNum == n } }
+        ?: data?.days?.firstOrNull()?.dayNum ?: 0
+    val selectedDay = userDay?.takeIf { n -> data?.days?.any { it.dayNum == n } == true } ?: defaultDay
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Расписание") },
@@ -129,7 +131,7 @@ fun ScheduleContent(
                             items(data.days) { d ->
                                 FilterChip(
                                     selected = selectedDay == d.dayNum,
-                                    onClick = { selectedDay = d.dayNum },
+                                    onClick = { userDay = d.dayNum },
                                     label = { Text(d.dayNameShort.ifBlank { d.dayName }) }
                                 )
                             }
