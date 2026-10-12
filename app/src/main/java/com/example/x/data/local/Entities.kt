@@ -29,9 +29,18 @@ data class LabEntity(
     val status: String,
     val points: Int,
     val maxPoints: Int,
-    val changed: Boolean = false
+    val changed: Boolean = false,
+    val muted: Boolean = false
 )
 
+/** Кеш расписания: одна строка (pk=0), обновляется только по кнопке пользователя. */
+@Entity(tableName = "schedule_cache")
+data class ScheduleCacheEntity(
+    @PrimaryKey val pk: Int = 0,
+    val dayInfoJson: String,
+    val scheduleJson: String,
+    val updatedAt: Long
+)
 /** Кеш заданий по курсу: чтобы не ждать сеть при каждом заходе. TTL проверяется по updatedAt. */
 @Entity(tableName = "task_cache", primaryKeys = ["cId", "idx"])
 data class TaskCacheEntity(
@@ -45,6 +54,7 @@ data class TaskCacheEntity(
     val result: String,
     val status: String,
     val flag: String,
+    val section: String = "",
     val updatedAt: Long
 )
 
@@ -63,7 +73,12 @@ data class UserEntity(
     val name: String,
     val group: String,
     val faculty: String,
-    val avatarUrl: String?
+    val avatarUrl: String?,
+    val firstName: String = "",
+    val lastName: String = "",
+    val middleName: String = "",
+    val login: String = "",
+    val email: String = ""
 )
 
 @Entity(tableName = "student_info")

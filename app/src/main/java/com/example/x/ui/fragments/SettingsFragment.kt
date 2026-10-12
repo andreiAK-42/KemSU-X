@@ -19,7 +19,13 @@ class SettingsFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setContent {
                 KemsuTheme {
-                    SettingsScreen(vm = vm, onBack = { findNavController().popBackStack() })
+                    // Пересоздаём активити, чтобы новый масштаб шрифта применился сразу
+                    SettingsScreen(
+                        vm = vm,
+                        onBack = { findNavController().popBackStack() },
+                        onFontChanged = { activity?.recreate()
+                        }
+                    )
                 }
             }
         }

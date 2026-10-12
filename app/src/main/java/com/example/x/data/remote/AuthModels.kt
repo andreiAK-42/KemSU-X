@@ -13,7 +13,8 @@ object AuthParser {
             val access = root.optString("accessToken", "")
             val refresh = root.optString("refreshToken", "")
 
-            val id = userInfo.optString("id", "")
+            // id приходит числом (38341), остальное строками/nullable
+            val id = userInfo.opt("id")?.toString().orEmpty()
             val login = userInfo.optString("login", "")
             val first = userInfo.optString("firstName", "")
             val last = userInfo.optString("lastName", "")

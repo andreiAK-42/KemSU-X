@@ -16,15 +16,29 @@ import com.example.x.viewmodel.CoursesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit) {
+fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -> Unit = {}) {
     val days by vm.notifyDays.collectAsState()
     val count by vm.notifyCount.collectAsState()
-    SettingsContent(days = days, count = count, onDays = { vm.setNotifyDays(it) }, onCount = { vm.setNotifyCount(it) }, onBack = onBack)
+    val ignoreFont by vm.ignoreFont.collectAsState()
+    val notificationsOn by vm.notificationsEnabled.collectAsState()
+    SettingsContent(
+        days = days, count = count,
+        onDays = { vm.setNotifyDays(it) }, onCount = { vm.setNotifyCount(it) },
+        ignoreFont = ignoreFont,
+        onIgnoreFont = { vm.setIgnoreFont(it); onFontChanged() },
+        notificationsOn = notificationsOn,
+        onNotifications = { vm.setNotificationsEnabled(it) },
+        onBack = onBack
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsContent(days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int) -> Unit, onBack: () -> Unit) {
+fun SettingsContent(
+    days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int) -> Unit,
+    ignoreFont: Boolean, onIgnoreFont: (Boolean) -> Unit,
+    notificationsOn: Boolean, onNotifications: (Boolean) -> Unit, onBack: () -> Unit
+) {
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("Настройки") },
@@ -40,12 +54,22 @@ fun SettingsContent(days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int)
             item {
                 ElevatedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Напоминать о дедлайнах", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            Switch(checked = notificationsOn, onCheckedChange = onNotifications)
+                        }
                         Text("Напоминать о дедлайне за:", style = MaterialTheme.typography.titleMedium)
                         val options = listOf(1, 2, 3, 7)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // FlowRow: при крупном шрифте чипсы переносятся, а не вытягиваются в высоту
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             options.forEach { d ->
                                 FilterChip(
                                     selected = days == d,
+                                    enabled = notificationsOn,
                                     onClick = { onDays(d) },
                                     label = { Text(if (d == 1) "1 день" else "$d дн.") }
                                 )
@@ -58,10 +82,11 @@ fun SettingsContent(days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int)
                         )
                         HorizontalDivider()
                         Text("Сколько раз напомнить:", style = MaterialTheme.typography.titleMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(1, 2, 3, 4).forEach { c ->
                                 FilterChip(
                                     selected = count == c,
+                                    enabled = notificationsOn,
                                     onClick = { onCount(c) },
                                     label = { Text("$c") }
                                 )
@@ -72,6 +97,26 @@ fun SettingsContent(days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int)
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+            item { Text("Экран", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+            item {
+                ElevatedCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Свой размер текста", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Игнорировать системное увеличение шрифта, чтобы не ломалась вёрстка",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(checked = ignoreFont, onCheckedChange = onIgnoreFont)
                     }
                 }
             }
@@ -106,5 +151,5 @@ private fun countWord(c: Int): String = when {
 @Preview(showBackground = true, name = "Settings")
 @Composable
 fun SettingsPreview() {
-    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, onBack = {}) }
+    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, ignoreFont = true, onIgnoreFont = {}, notificationsOn = true, onNotifications = {}, onBack = {}) }
 }

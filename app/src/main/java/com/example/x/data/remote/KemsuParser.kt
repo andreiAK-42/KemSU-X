@@ -125,27 +125,33 @@ object KemsuParser {
         ?: return emptyList()
 
         val result = mutableListOf<CourseTask>()
+        var section = ""
+        var groups = 0
 
         for (row in target.select("tr")) {
             val cells = row.select("td")
-            if (cells.size < 7 || cells[0].hasAttr("colspan")) continue
+            if (cells.isEmpty()) continue // шапка из th
 
-            val title = cells[0].text().trim()
-
-            // Групповые строки и заголовок таблицы не являются заданиями.
-            if (title.isBlank() ||
-                title == "Название" ||
-                title.contains("Лабораторные работы") ||
-                title.contains("Лаб")
-            ) {
+            // Строка-раздел ("Теоретические основы...", "Обоснование ценности..."):
+            // серая подложка #dcdcdc, жирный текст, НЕТ statusBox. Это НЕ лаба,
+            // а заголовок сворачивающейся группы — запоминаем для следующих заданий.
+            val hasStatusBox = row.selectFirst("i[data-id=statusBox]") != null
+            val isGroup = row.attr("style").contains("#dcdcdc", ignoreCase = true) ||
+                (!hasStatusBox && row.selectFirst("td b") != null)
+            if (isGroup) {
+                section = cells[0].text().replace('\u00A0', ' ').trim()
+                groups++
                 continue
             }
+            if (cells.size < 7 || cells[0].hasAttr("colspan")) continue
 
+            val title = cells[0].text().replace('\u00A0', ' ').trim()
+            if (title.isBlank() || title == "Название") continue
             if (cells[1].text().contains("Требуется")) continue
 
             val requires = cells[1].text().trim()
             val comment = cells[2].text().trim()
-            val controlDate = cells[3].text().trim()
+            val controlDate = cells[3].text().replace('\u00A0', ' ').trim()
             val maxBall = cells[4].text().trim().toIntOrNull() ?: 0
             val resultValue = cells[5].text().trim()
             val statusCell = cells[6]
@@ -161,45 +167,50 @@ object KemsuParser {
                 maxBall = maxBall,
                 result = resultValue,
                 status = status,
-                flag = flag
+                flag = flag,
+                section = section
             )
         }
 
-        // Если структура таблицы изменилась, используем более мягкий разбор.
-        if (result.isNotEmpty()) return result
+        // Если структура таблицы изменилась, используем более мягкий разбор
+        // (с тем же правилом разделов).
+        if (result.isNotEmpty()) {
+            android.util.Log.d("KEMSU_API", "parseTasks tasks=${result.size} sections=$groups")
+            return result
+        }
 
+        section = ""
         for (row in target.select("tr")) {
             val cells = row.select("td")
-            if (cells.size < 4 || cells[0].hasAttr("colspan")) continue
-
-            val title = cells[0].text().trim()
-            if (title.isBlank() ||
-                title == "Название" ||
-                title.contains("Лабораторные")
+            if (cells.isEmpty()) continue
+            val hasStatusBox = row.selectFirst("i[data-id=statusBox]") != null
+            if (row.attr("style").contains("#dcdcdc", ignoreCase = true) ||
+                (!hasStatusBox && row.selectFirst("td b") != null)
             ) {
+                section = cells[0].text().replace('\u00A0', ' ').trim()
+                groups++
                 continue
             }
+            if (cells.size < 4 || cells[0].hasAttr("colspan")) continue
 
-            val requires = cells.getOrNull(1)?.text()?.trim().orEmpty()
-            val comment = cells.getOrNull(2)?.text()?.trim().orEmpty()
-            val controlDate = cells.getOrNull(3)?.text()?.trim().orEmpty()
-            val maxBall = cells.getOrNull(4)?.text()?.trim()?.toIntOrNull() ?: 0
-            val resultValue = cells.getOrNull(5)?.text()?.trim().orEmpty()
-            val status = cells.getOrNull(6)?.text()?.trim()
-                ?: cells.lastOrNull()?.text()?.trim().orEmpty()
+            val title = cells[0].text().replace('\u00A0', ' ').trim()
+            if (title.isBlank() || title == "Название") continue
 
             result += CourseTask(
                 title = title,
-                requiresSubmission = requires,
-                comment = comment,
-                controlDate = controlDate,
-                maxBall = maxBall,
-                result = resultValue,
-                status = status,
-                flag = ""
+                requiresSubmission = cells.getOrNull(1)?.text()?.trim().orEmpty(),
+                comment = cells.getOrNull(2)?.text()?.trim().orEmpty(),
+                controlDate = cells.getOrNull(3)?.text()?.replace('\u00A0', ' ')?.trim().orEmpty(),
+                maxBall = cells.getOrNull(4)?.text()?.trim()?.toIntOrNull() ?: 0,
+                result = cells.getOrNull(5)?.text()?.trim().orEmpty(),
+                status = cells.getOrNull(6)?.text()?.trim()
+                    ?: cells.lastOrNull()?.text()?.trim().orEmpty(),
+                flag = "",
+                section = section
             )
         }
 
+        android.util.Log.d("KEMSU_API", "parseTasks fallback tasks=${result.size} sections=$groups")
         return result
     }
 }

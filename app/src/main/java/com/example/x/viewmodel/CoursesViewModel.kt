@@ -41,7 +41,8 @@ data class CoursesUiState(
     val scan: ScanProgress = ScanProgress(),
     val lastScanLabel: String = "",
     val labFilter: String = "Все",
-    val homeLabs: List<Lab> = emptyList()
+    val homeLabs: List<Lab> = emptyList(),
+    val offline: Boolean = false
 )
 
 class CoursesViewModel(app: Application) : AndroidViewModel(app) {
@@ -66,6 +67,9 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
     private val _labFilter = MutableStateFlow("Все")
     private val _notifyDays = MutableStateFlow(prefs.getNotifyDays())
     private val _notifyCount = MutableStateFlow(prefs.getNotifyCount())
+    private val _ignoreFont = MutableStateFlow(prefs.getIgnoreSystemFont())
+    private val _notificationsEnabled = MutableStateFlow(prefs.getNotificationsEnabled())
+    private val _offline = MutableStateFlow(false)
 
     fun setLabFilter(f: String) { _labFilter.value = f; Log.d("KEMSU_API", "lab filter=$f") }
 
@@ -87,6 +91,24 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
         Log.d("KEMSU_API", "notify count=${_notifyCount.value}")
     }
 
+    /** Мастер-рубильник уведомлений. Выкл — отменяем и фоновую задачу. */
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled
+    fun setNotificationsEnabled(v: Boolean) {
+        prefs.setNotificationsEnabled(v)
+        _notificationsEnabled.value = v
+        if (v) DeadlineScheduler.schedule(getApplication(), force = true)
+        else DeadlineScheduler.cancel(getApplication())
+        Log.d("KEMSU_API", "notifications enabled=$v")
+    }
+
+    /** Игнорировать системное увеличение шрифта (дефолт — да). */
+    val ignoreFont: StateFlow<Boolean> = _ignoreFont
+    fun setIgnoreFont(v: Boolean) {
+        prefs.setIgnoreSystemFont(v)
+        _ignoreFont.value = v
+        Log.d("KEMSU_API", "ignore font=$v")
+    }
+
     private val base = combine(
         repository.observeAllCourses(),
         repository.observeLabs(),
@@ -101,7 +123,7 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
         Triple(b, Pair(events, unread), err)
     }
 
-    val uiState: StateFlow<CoursesUiState> = combine(base2, _year, _update, _scan, _labFilter) { triple, year, update, scan, labFilter ->
+    private val baseUiState: StateFlow<CoursesUiState> = combine(base2, _year, _update, _scan, _labFilter) { triple, year, update, scan, labFilter ->
         val (b, pairEU, err) = triple
         val (events, unread) = pairEU
         val (pair1, pair2, loading) = b
@@ -113,6 +135,10 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
         val homeLabs = if (labFilter == "Все") labs
         else labs.filter { com.example.x.data.model.labCategoryOf(it).label == labFilter }
         CoursesUiState(loading, filtered, labs, events, unread, user, name, err, year, generateYears(), update, scan, lastScanLabel(), labFilter, homeLabs)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CoursesUiState(availableYears = generateYears()))
+
+    val uiState: StateFlow<CoursesUiState> = combine(baseUiState, _offline) { s, off ->
+        s.copy(offline = off)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CoursesUiState(availableYears = generateYears()))
 
     private fun lastScanLabel(): String {
@@ -175,6 +201,7 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
             val res = repository.login(user, pass)
             Log.d("KEMSU_API", "login result $res")
             if (res.isSuccess) {
+                _offline.value = false
                 // Всегда сохраняем для dekanat bridge, has_saved отдельно для автоподстановки
                 prefs.saveCredentials(user, pass)
                 if (!remember) {
@@ -185,7 +212,17 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
                 DeadlineScheduler.schedule(getApplication())
                 refresh()
             } else {
-                onDone(false, res.exceptionOrNull()?.message)
+                val ex = res.exceptionOrNull()
+                // Сервер вообще не ответил (нет сети/таймаут) — офлайн-режим:
+                // ничего не грузим, предупреждаем, но пускаем к сохранённым данным
+                if (ex is java.io.IOException) {
+                    Log.w("KEMSU_API", "login offline, no response: ${ex.message}")
+                    _offline.value = true
+                    _error.value = "Нет связи с сервером — включён офлайн-режим. Показаны сохранённые данные."
+                    onDone(true, null)
+                } else {
+                    onDone(false, ex?.message)
+                }
             }
             _loading.value = false
         }
@@ -229,5 +266,59 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
                 Log.w("KEMSU_API", "update check failed $e")
             }
         }
+    }
+
+    // ---------- Расписание: кеш, обновление только по кнопке ----------
+
+    data class ScheduleUiState(
+        val isLoading: Boolean = false,
+        val data: com.example.x.data.model.ScheduleData? = null,
+        val error: String? = null,
+        /** null = авто (текущая чётность), true/false = принудительно нечётная/чётная */
+        val parityOverride: Boolean? = null
+    )
+
+    private val _schedule = MutableStateFlow(ScheduleUiState())
+    val schedule: StateFlow<ScheduleUiState> = _schedule
+
+    /** Только кеш, без сети. Вызывать при открытии экрана. */
+    fun loadSchedule() {
+        viewModelScope.launch {
+            try {
+                val cached = repository.getScheduleCached(_schedule.value.parityOverride)
+                Log.d("KEMSU_API", "schedule cache days=${cached?.days?.size}")
+                _schedule.value = _schedule.value.copy(isLoading = false, data = cached, error = null)
+            } catch (e: Exception) {
+                Log.w("KEMSU_API", "schedule load failed $e")
+                _schedule.value = _schedule.value.copy(isLoading = false, error = e.message)
+            }
+        }
+    }
+
+    /** Переключатель чётности: посмотреть другую неделю без сети, из того же кеша. */
+    fun setScheduleParity(odd: Boolean?) {
+        _schedule.value = _schedule.value.copy(parityOverride = odd)
+        loadSchedule()
+    }
+
+    /** Сеть + сохранение в кеш. Только по кнопке пользователя. */
+    fun refreshSchedule() {
+        viewModelScope.launch {
+            _schedule.value = _schedule.value.copy(isLoading = true, error = null)
+            val res = repository.refreshSchedule()
+            if (res.isSuccess) {
+                // Перечитываем через кеш, чтобы применить пересчёт недели и оверрайд чётности
+                val cached = repository.getScheduleCached(_schedule.value.parityOverride)
+                _schedule.value = _schedule.value.copy(isLoading = false, data = cached, error = null)
+            } else {
+                Log.w("KEMSU_API", "schedule refresh failed ${res.exceptionOrNull()?.message}")
+                // Кеш не затираем — показываем что было
+                _schedule.value = _schedule.value.copy(isLoading = false, error = res.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun clearScheduleError() {
+        _schedule.value = _schedule.value.copy(error = null)
     }
 }

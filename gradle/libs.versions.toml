@@ -45,6 +45,7 @@ okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor",
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+org-json = { group = "org.json", name = "json", version = "20240303" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-workmanager = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workmanager" }

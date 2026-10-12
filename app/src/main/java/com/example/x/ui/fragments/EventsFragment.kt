@@ -19,7 +19,11 @@ class EventsFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setContent {
                 KemsuTheme {
-                    EventsScreen(vm = vm, onBack = { findNavController().popBackStack() })
+                    EventsScreen(
+                        vm = vm,
+                        onBack = { findNavController().popBackStack()
+                        }
+                    )
                 }
             }
         }

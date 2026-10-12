@@ -16,7 +16,11 @@ class DetailFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setContent {
                 KemsuTheme {
-                    CourseDetailScreen(cId = cId, onBack = { findNavController().popBackStack() })
+                    CourseDetailScreen(
+                        cId = cId,
+                        onBack = { findNavController().popBackStack()
+                        }
+                    )
                 }
             }
         }

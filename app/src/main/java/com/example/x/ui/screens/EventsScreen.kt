@@ -31,10 +31,10 @@ fun EventsScreen(vm: CoursesViewModel, onBack: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsContent(events: List<com.example.x.data.model.Event>, unread: Int = 0, labs: List<Lab> = emptyList(), onBack: () -> Unit) {
-    // Лабы с ближайшим дедлайном (несданные, ближайшие 14 дней), сортировка по дате
+    // Лабы с ближайшим дедлайном (несданные, немьюченные, ближайшие 14 дней)
     val soonLabs = remember(labs) {
         val today = java.time.LocalDate.now()
-        labs.mapNotNull { lab ->
+        labs.filter { !it.muted }.mapNotNull { lab ->
             try {
                 val d = java.time.LocalDate.parse(lab.deadline, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                 val days = java.time.temporal.ChronoUnit.DAYS.between(today, d)

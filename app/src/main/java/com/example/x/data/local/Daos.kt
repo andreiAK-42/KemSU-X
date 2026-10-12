@@ -36,6 +36,8 @@ interface LabDao {
     suspend fun deleteAll()
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<LabEntity>)
+    @Query("UPDATE labs SET muted = :muted WHERE id = :id")
+    suspend fun setMuted(id: String, muted: Boolean)
 }
 
 @Dao
@@ -47,6 +49,16 @@ interface TaskCacheDao {
     @Query("DELETE FROM task_cache WHERE cId = :cId")
     suspend fun deleteByCId(cId: String)
     @Query("DELETE FROM task_cache")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface ScheduleCacheDao {
+    @Query("SELECT * FROM schedule_cache WHERE pk = 0 LIMIT 1")
+    suspend fun get(): ScheduleCacheEntity?
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: ScheduleCacheEntity)
+    @Query("DELETE FROM schedule_cache")
     suspend fun deleteAll()
 }
 

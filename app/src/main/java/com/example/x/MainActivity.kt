@@ -7,10 +7,15 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
     /**
-     * Игнорируем системное увеличение шрифта: при крупном fontScale
-     * текст разъезжается и ломает вёрстку. Фиксируем масштаб 1.0.
+     * Системное увеличение шрифта ломает вёрстку. По умолчанию игнорируем
+     * (fontScale = 1.0), в настройках есть галочка чтобы вернуть системный размер.
      */
     override fun attachBaseContext(newBase: Context) {
+        val ignore = com.example.x.data.local.PrefsManager(newBase).getIgnoreSystemFont()
+        if (!ignore) {
+            super.attachBaseContext(newBase)
+            return
+        }
         val fixed = Configuration(newBase.resources.configuration).apply { fontScale = 1f }
         super.attachBaseContext(newBase.createConfigurationContext(fixed))
     }

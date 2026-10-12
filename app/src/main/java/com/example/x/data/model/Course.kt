@@ -21,7 +21,9 @@ data class Lab(
     val points: Int,
     val maxPoints: Int = 10,
     /** Изменилась относительно прошлого захода (новая или поменялись статус/баллы/дедлайн). */
-    val changed: Boolean = false
+    val changed: Boolean = false,
+    /** Замьючена пользователем: уведомлений и событий по ней нет. */
+    val muted: Boolean = false
 )
 
 /** Категория лабы для фильтра и цвета на главной. */
@@ -29,13 +31,16 @@ enum class LabCategory(val label: String) {
     DONE("Сданные"),
     ZERO("0 баллов"),
     REVIEW("На проверке"),
-    TODO("Не сданные")
+    TODO("Не сданные"),
+
+    EDIT("Редактируется")
 }
 
 fun labCategoryOf(lab: Lab): LabCategory = when {
     // Оценена, но 0 баллов — красным
     lab.status == "Сдано" && lab.points == 0 -> LabCategory.ZERO
     lab.status == "Сдано" -> LabCategory.DONE
+    lab.status == "Редактируется" -> LabCategory.EDIT
     // Только буквальный "На проверке" (и родственные без "не").
     // "Просмотрено" — это НЕ проверка, такие идут в несданные.
     lab.status.contains("провер", ignoreCase = true) &&
@@ -57,9 +62,4 @@ data class User(
     val faculty: String = "",
     val town: String = "",
     val avatarUrl: String? = null
-)
-
-data class AuthTokens(
-    val accessToken: String,
-    val refreshToken: String
 )

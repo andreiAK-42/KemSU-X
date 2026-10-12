@@ -27,7 +27,8 @@ class CoursesFragment : Fragment() {
                         },
                         onEventsClick = { findNavController().navigate(com.example.x.R.id.action_courses_to_events) },
                         onLoginClick = { findNavController().navigate(com.example.x.R.id.action_courses_to_login) },
-                        onSettingsClick = { findNavController().navigate(com.example.x.R.id.action_courses_to_settings) }
+                        onSettingsClick = { findNavController().navigate(com.example.x.R.id.action_courses_to_settings) },
+                        onScheduleClick = { findNavController().navigate(com.example.x.R.id.action_courses_to_schedule) }
                     )
                 }
             }
