@@ -63,6 +63,26 @@ interface ScheduleCacheDao {
 }
 
 @Dao
+interface TeacherListCacheDao {
+    @Query("SELECT * FROM teacher_list_cache WHERE pk = 0 LIMIT 1")
+    suspend fun get(): TeacherListCacheEntity?
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: TeacherListCacheEntity)
+    @Query("DELETE FROM teacher_list_cache")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface TeacherScheduleCacheDao {
+    @Query("SELECT * FROM teacher_schedule_cache WHERE prepId = :prepId LIMIT 1")
+    suspend fun get(prepId: Int): TeacherScheduleCacheEntity?
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: TeacherScheduleCacheEntity)
+    @Query("DELETE FROM teacher_schedule_cache")
+    suspend fun deleteAll()
+}
+
+@Dao
 interface UserDao {
     @Query("SELECT * FROM users LIMIT 1")
     fun observe(): Flow<UserEntity?>

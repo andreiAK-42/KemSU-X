@@ -5,6 +5,7 @@ import com.example.x.data.model.ScheduleData
 import com.example.x.data.model.ScheduleDay
 import com.example.x.data.model.ScheduleDayInfo
 import com.example.x.data.model.ScheduleLesson
+import com.example.x.data.model.Teacher
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -37,6 +38,10 @@ object ScheduleParser {
      * В клетке {coupleAll, coupleEven, coupleOdd}.
      * Фильтр по текущей неделе: нечётная -> odd+all, чётная -> even+all,
      * плюс отсекаем пары вне [minWeekNum, maxWeekNum].
+     *
+     * Ключи пары у студенческого расписания (DiscName, minWeekNum...) и
+     * у расписания преподавателя (discName, startWeekNum...) различаются
+     * регистром/именами — читаем оба варианта, поэтому метод общий.
      */
     fun parseSchedule(json: String, dayInfo: ScheduleDayInfo?): ScheduleData? {
         return try {
@@ -76,14 +81,14 @@ object ScheduleParser {
                     cell.optJSONArray("coupleAll")?.let { pool += it.toObjectList() }
                     cell.optJSONArray(if (odd) "coupleOdd" else "coupleEven")?.let { pool += it.toObjectList() }
                     for (o in pool) {
-                        val minW = o.optInt("minWeekNum", 0)
-                        val maxW = o.optInt("maxWeekNum", 99)
+                        val minW = o.optInt("minWeekNum", o.optInt("startWeekNum", 0))
+                        val maxW = o.optInt("maxWeekNum", o.optInt("endWeekNum", 99))
                         if (weekNum != 0 && (weekNum < minW || weekNum > maxW)) continue
                         byDay[dayNum]?.add(
                             ScheduleLesson(
-                                discName = o.optString("DiscName", ""),
-                                prepName = o.optString("PrepName", ""),
-                                auditoryName = o.optString("AuditoryName", ""),
+                                discName = o.optString("discName", o.optString("DiscName", "")),
+                                prepName = o.optString("prepName", o.optString("PrepName", "")),
+                                auditoryName = o.optString("auditoryName", o.optString("AuditoryName", "")),
                                 lessonType = o.optString("lessonType", ""),
                                 periodTypeName = o.optString("periodTypeName", ""),
                                 minWeekNum = minW,
@@ -99,6 +104,24 @@ object ScheduleParser {
             ScheduleData(dayInfo, groupName, days)
         } catch (e: Exception) {
             Log.w(TAG, "parseSchedule failed $e")
+            null
+        }
+    }
+
+    /** Список преподавателей: {"success":true,"teacherList":[{prepId,fio}...]} */
+    fun parseTeacherList(json: String): List<Teacher>? {
+        return try {
+            val root = JSONObject(json)
+            if (!root.optBoolean("success", false)) return null
+            val arr = root.optJSONArray("teacherList") ?: return null
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                val id = o.optInt("prepId", 0)
+                val fio = o.optString("fio", "")
+                if (id != 0 && fio.isNotBlank()) Teacher(id, fio) else null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "parseTeacherList failed $e")
             null
         }
     }

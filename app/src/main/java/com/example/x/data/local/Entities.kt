@@ -41,6 +41,22 @@ data class ScheduleCacheEntity(
     val scheduleJson: String,
     val updatedAt: Long
 )
+
+/** Кеш списка преподавателей: одна строка (pk=0), фильтр по ФИО — локально. */
+@Entity(tableName = "teacher_list_cache")
+data class TeacherListCacheEntity(
+    @PrimaryKey val pk: Int = 0,
+    val json: String,
+    val updatedAt: Long
+)
+
+/** Кеш расписания преподавателя по prepId, обновляется только по кнопке пользователя. */
+@Entity(tableName = "teacher_schedule_cache")
+data class TeacherScheduleCacheEntity(
+    @PrimaryKey val prepId: Int,
+    val json: String,
+    val updatedAt: Long
+)
 /** Кеш заданий по курсу: чтобы не ждать сеть при каждом заходе. TTL проверяется по updatedAt. */
 @Entity(tableName = "task_cache", primaryKeys = ["cId", "idx"])
 data class TaskCacheEntity(

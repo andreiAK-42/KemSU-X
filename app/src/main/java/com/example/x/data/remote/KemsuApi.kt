@@ -586,4 +586,14 @@ class KemsuApi(private val appContext: Context? = null) {
     suspend fun fetchScheduleTable(): Result<String> {
         return fetchScheduleJson("/api/schedule/integration/shedule")
     }
+
+    /** Список преподавателей. Пустой fio — весь список (его и кешируем, фильтруем локально). */
+    suspend fun fetchTeacherList(fio: String = ""): Result<String> {
+        val query = "?prepFio=" + java.net.URLEncoder.encode(fio, "UTF-8")
+        return fetchScheduleJson("/api/schedule/integration/teacherList2$query")
+    }
+
+    suspend fun fetchTeacherSchedule(prepId: Int): Result<String> {
+        return fetchScheduleJson("/api/schedule/integration/prepScheduleById?prepId=$prepId")
+    }
 }
