@@ -109,6 +109,33 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
         Log.d("KEMSU_API", "ignore font=$v")
     }
 
+    /** Фоновая проверка оценок: преподаватель оценил лабу — уведомление. */
+    private val _labCheckEnabled = MutableStateFlow(prefs.getLabCheckEnabled())
+    val labCheckEnabled: StateFlow<Boolean> = _labCheckEnabled
+    fun setLabCheckEnabled(v: Boolean) {
+        prefs.setLabCheckEnabled(v)
+        _labCheckEnabled.value = v
+        com.example.x.utils.LabCheckScheduler.schedule(getApplication(), force = true)
+        Log.d("KEMSU_API", "lab check enabled=$v")
+    }
+
+    private val _labCheckHours = MutableStateFlow(prefs.getLabCheckIntervalHours())
+    val labCheckHours: StateFlow<Int> = _labCheckHours
+    fun setLabCheckHours(h: Int) {
+        prefs.setLabCheckIntervalHours(h)
+        _labCheckHours.value = prefs.getLabCheckIntervalHours()
+        com.example.x.utils.LabCheckScheduler.schedule(getApplication(), force = true)
+        Log.d("KEMSU_API", "lab check hours=${_labCheckHours.value}")
+    }
+
+    private val _labCheckLastRun = MutableStateFlow(prefs.getLabCheckLastRun())
+    val labCheckLastRun: StateFlow<Long> = _labCheckLastRun
+
+    /** Перечитать время последней фоновой проверки (воркер пишет в prefs напрямую). */
+    fun refreshLabCheckMeta() {
+        _labCheckLastRun.value = prefs.getLabCheckLastRun()
+    }
+
     private val base = combine(
         repository.observeAllCourses(),
         repository.observeLabs(),
@@ -320,5 +347,130 @@ class CoursesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearScheduleError() {
         _schedule.value = _schedule.value.copy(error = null)
+    }
+
+    // ---------- Расписание преподавателей ----------
+
+    data class TeacherUiState(
+        val listLoading: Boolean = false,
+        val teachers: List<com.example.x.data.model.Teacher> = emptyList(),
+        /** Локальный фильтр по ФИО, список кешируется целиком */
+        val query: String = "",
+        val selected: com.example.x.data.model.Teacher? = null,
+        val schedule: com.example.x.data.model.ScheduleData? = null,
+        val scheduleLoading: Boolean = false,
+        val error: String? = null,
+        /** null = авто (текущая чётность), true/false = принудительно нечётная/чётная */
+        val parityOverride: Boolean? = null
+    )
+
+    private val _teachers = MutableStateFlow(TeacherUiState())
+    val teachers: StateFlow<TeacherUiState> = _teachers
+
+    /** Кеш списка преподавателей; если кеша нет — первый догружается из сети. */
+    fun loadTeachers() {
+        viewModelScope.launch {
+            try {
+                val cached = repository.getTeacherListCached()
+                Log.d("KEMSU_API", "teacher list cache=${cached.size}")
+                _teachers.value = _teachers.value.copy(teachers = cached, listLoading = false)
+                if (cached.isEmpty()) refreshTeachers()
+            } catch (e: Exception) {
+                Log.w("KEMSU_API", "teacher list load failed $e")
+                _teachers.value = _teachers.value.copy(listLoading = false, error = e.message)
+            }
+        }
+    }
+
+    /** Сеть + кеш списка преподавателей. По кнопке/первому открытию. */
+    fun refreshTeachers() {
+        viewModelScope.launch {
+            _teachers.value = _teachers.value.copy(listLoading = true, error = null)
+            val res = repository.refreshTeacherList()
+            if (res.isSuccess) {
+                _teachers.value = _teachers.value.copy(listLoading = false, teachers = res.getOrNull() ?: emptyList())
+            } else {
+                Log.w("KEMSU_API", "teacher list refresh failed ${res.exceptionOrNull()?.message}")
+                // Кеш не затираем — показываем что было
+                _teachers.value = _teachers.value.copy(listLoading = false, error = res.exceptionOrNull()?.message)
+            }
+        }
+    }
+
+    fun setTeacherQuery(q: String) {
+        _teachers.value = _teachers.value.copy(query = q)
+    }
+
+    /** Выбор преподавателя: кеш сразу, при отсутствии — сеть (выбор и есть действие пользователя). */
+    fun selectTeacher(teacher: com.example.x.data.model.Teacher) {
+        _teachers.value = _teachers.value.copy(selected = teacher, schedule = null, scheduleLoading = true, error = null)
+        viewModelScope.launch {
+            try {
+                val cached = repository.getTeacherScheduleCached(teacher.prepId, _teachers.value.parityOverride)
+                if (cached != null) {
+                    Log.d("KEMSU_API", "teacher ${teacher.prepId} schedule cache lessons=${cached.days.sumOf { it.lessons.size }}")
+                    _teachers.value = _teachers.value.copy(schedule = cached, scheduleLoading = false)
+                } else {
+                    fetchTeacherSchedule(teacher.prepId)
+                }
+            } catch (e: Exception) {
+                Log.w("KEMSU_API", "teacher schedule load failed $e")
+                _teachers.value = _teachers.value.copy(scheduleLoading = false, error = e.message)
+            }
+        }
+    }
+
+    /** Сеть + сохранение в кеш. Только по действию пользователя. */
+    fun refreshTeacherSchedule() {
+        val teacher = _teachers.value.selected ?: return
+        viewModelScope.launch {
+            _teachers.value = _teachers.value.copy(scheduleLoading = true, error = null)
+            fetchTeacherSchedule(teacher.prepId)
+        }
+    }
+
+    private suspend fun fetchTeacherSchedule(prepId: Int) {
+        val res = repository.refreshTeacherSchedule(prepId)
+        if (res.isSuccess && _teachers.value.selected?.prepId == prepId) {
+            // Перечитываем через кеш, чтобы применить пересчёт недели и оверрайд чётности
+            val cached = repository.getTeacherScheduleCached(prepId, _teachers.value.parityOverride)
+            _teachers.value = _teachers.value.copy(scheduleLoading = false, schedule = cached, error = null)
+        } else if (_teachers.value.selected?.prepId == prepId) {
+            Log.w("KEMSU_API", "teacher schedule refresh failed ${res.exceptionOrNull()?.message}")
+            // Кеш не затираем — показываем что было
+            _teachers.value = _teachers.value.copy(scheduleLoading = false, error = res.exceptionOrNull()?.message)
+        }
+    }
+
+    /** Переключатель чётности: посмотреть другую неделю без сети, из кеша. */
+    fun setTeacherParity(odd: Boolean?) {
+        val selected = _teachers.value.selected ?: run {
+            _teachers.value = _teachers.value.copy(parityOverride = odd)
+            return
+        }
+        _teachers.value = _teachers.value.copy(parityOverride = odd)
+        viewModelScope.launch {
+            try {
+                val cached = repository.getTeacherScheduleCached(selected.prepId, odd)
+                if (cached != null) {
+                    _teachers.value = _teachers.value.copy(schedule = cached, scheduleLoading = false)
+                } else {
+                    _teachers.value = _teachers.value.copy(scheduleLoading = true)
+                    fetchTeacherSchedule(selected.prepId)
+                }
+            } catch (e: Exception) {
+                Log.w("KEMSU_API", "teacher parity switch failed $e")
+                _teachers.value = _teachers.value.copy(error = e.message)
+            }
+        }
+    }
+
+    /** Назад из расписания преподавателя к списку. */
+    fun backToTeacherList() {
+        _teachers.value = _teachers.value.copy(selected = null, schedule = null, error = null)
+    }
+
+    fun clearTeacherError() {
+        _teachers.value = _teachers.value.copy(error = null)
     }
 }

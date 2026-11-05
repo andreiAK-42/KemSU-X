@@ -21,6 +21,10 @@ fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -
     val count by vm.notifyCount.collectAsState()
     val ignoreFont by vm.ignoreFont.collectAsState()
     val notificationsOn by vm.notificationsEnabled.collectAsState()
+    val labCheckOn by vm.labCheckEnabled.collectAsState()
+    val labCheckHours by vm.labCheckHours.collectAsState()
+    val labCheckLastRun by vm.labCheckLastRun.collectAsState()
+    LaunchedEffect(Unit) { vm.refreshLabCheckMeta() }
     SettingsContent(
         days = days, count = count,
         onDays = { vm.setNotifyDays(it) }, onCount = { vm.setNotifyCount(it) },
@@ -28,6 +32,11 @@ fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -
         onIgnoreFont = { vm.setIgnoreFont(it); onFontChanged() },
         notificationsOn = notificationsOn,
         onNotifications = { vm.setNotificationsEnabled(it) },
+        labCheckOn = labCheckOn,
+        onLabCheck = { vm.setLabCheckEnabled(it) },
+        labCheckHours = labCheckHours,
+        onLabCheckHours = { vm.setLabCheckHours(it) },
+        labCheckLastRun = labCheckLastRun,
         onBack = onBack
     )
 }
@@ -37,7 +46,11 @@ fun SettingsScreen(vm: CoursesViewModel, onBack: () -> Unit, onFontChanged: () -
 fun SettingsContent(
     days: Int, count: Int, onDays: (Int) -> Unit, onCount: (Int) -> Unit,
     ignoreFont: Boolean, onIgnoreFont: (Boolean) -> Unit,
-    notificationsOn: Boolean, onNotifications: (Boolean) -> Unit, onBack: () -> Unit
+    notificationsOn: Boolean, onNotifications: (Boolean) -> Unit,
+    labCheckOn: Boolean, onLabCheck: (Boolean) -> Unit,
+    labCheckHours: Int, onLabCheckHours: (Int) -> Unit,
+    labCheckLastRun: Long = 0L,
+    onBack: () -> Unit
 ) {
     Scaffold(topBar = {
         TopAppBar(
@@ -100,6 +113,43 @@ fun SettingsContent(
                     }
                 }
             }
+            item {
+                ElevatedCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Сообщать о проверенных лабах", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Преподаватель оценил работу, а приложение ещё не знало — придёт уведомление с результатом. Проверка в фоне, вход по сохранённому логину.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(checked = labCheckOn, onCheckedChange = onLabCheck)
+                        }
+                        Text("Как часто проверять:", style = MaterialTheme.typography.titleMedium)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(1, 3, 6, 12, 24).forEach { h ->
+                                FilterChip(
+                                    selected = labCheckHours == h,
+                                    enabled = labCheckOn,
+                                    onClick = { onLabCheckHours(h) },
+                                    label = { Text("$h ч") }
+                                )
+                            }
+                        }
+                        Text(
+                            lastRunHint(labCheckLastRun),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
             item { Text("Экран", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
             item {
                 ElevatedCard(Modifier.fillMaxWidth()) {
@@ -130,6 +180,15 @@ private fun dayWord(d: Int): String = when {
     else -> "дней"
 }
 
+private fun lastRunHint(lastRun: Long): String {
+    if (lastRun <= 0L) return "Проверка ещё не запускалась."
+    return try {
+        val dt = java.time.Instant.ofEpochMilli(lastRun)
+            .atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
+        "Последняя проверка: " + dt.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM HH:mm")) + "."
+    } catch (_: Exception) { "" }
+}
+
 /** "2 дня × 4 раза = каждые 12 ч" — как в примере пользователя. */
 private fun intervalHint(days: Int, count: Int): String {
     if (days <= 0) return "только в день сдачи"
@@ -151,5 +210,15 @@ private fun countWord(c: Int): String = when {
 @Preview(showBackground = true, name = "Settings")
 @Composable
 fun SettingsPreview() {
-    KemsuTheme { SettingsContent(days = 2, count = 4, onDays = {}, onCount = {}, ignoreFont = true, onIgnoreFont = {}, notificationsOn = true, onNotifications = {}, onBack = {}) }
+    KemsuTheme {
+        SettingsContent(
+            days = 2, count = 4, onDays = {}, onCount = {},
+            ignoreFont = true, onIgnoreFont = {},
+            notificationsOn = true, onNotifications = {},
+            labCheckOn = true, onLabCheck = {},
+            labCheckHours = 6, onLabCheckHours = {},
+            labCheckLastRun = System.currentTimeMillis(),
+            onBack = {}
+        )
+    }
 }

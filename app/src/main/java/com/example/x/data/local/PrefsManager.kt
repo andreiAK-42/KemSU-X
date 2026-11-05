@@ -72,6 +72,30 @@ class PrefsManager(context: Context) {
         prefs.edit().putBoolean("notifications_enabled", v).apply()
     }
 
+    /** Фоновая проверка оценок: преподаватель оценил лабу — уведомляем. Дефолт — выключена. */
+    fun getLabCheckEnabled(): Boolean = prefs.getBoolean("lab_check_enabled", false)
+    fun setLabCheckEnabled(v: Boolean) {
+        prefs.edit().putBoolean("lab_check_enabled", v).apply()
+    }
+
+    /** Как часто проверять оценки, в часах. Дефолт — 6. */
+    fun getLabCheckIntervalHours(): Int = prefs.getInt("lab_check_hours", 6).coerceIn(1, 48)
+    fun setLabCheckIntervalHours(h: Int) {
+        prefs.edit().putInt("lab_check_hours", h.coerceIn(1, 48)).apply()
+    }
+
+    /** Последний запуск фоновой проверки оценок (для строчки в настройках). */
+    fun getLabCheckLastRun(): Long = prefs.getLong("lab_check_last_run", 0L)
+    fun setLabCheckLastRun(now: Long = System.currentTimeMillis()) {
+        prefs.edit().putLong("lab_check_last_run", now).apply()
+    }
+
+    /** Версия приложения, при которой в последний раз запускался этот профиль. */
+    fun getAppVersion(): String? = prefs.getString("app_version", null)
+    fun setAppVersion(v: String) {
+        prefs.edit().putString("app_version", v).apply()
+    }
+
     /** Игнорировать системное увеличение шрифта (дефолт — да, чтобы не ломалась вёрстка). */
     fun getIgnoreSystemFont(): Boolean = prefs.getBoolean("ignore_system_font", true)
     fun setIgnoreSystemFont(v: Boolean) {

@@ -41,3 +41,9 @@ data class ScheduleData(
     val days: List<ScheduleDay>,
     val updatedAt: Long = 0L
 )
+
+/** Преподаватель: /api/schedule/integration/teacherList2 */
+data class Teacher(
+    val prepId: Int,
+    val fio: String
+)

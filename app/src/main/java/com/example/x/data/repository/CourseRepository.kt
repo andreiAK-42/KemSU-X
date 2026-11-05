@@ -8,6 +8,8 @@ import com.example.x.data.local.LabEntity
 import com.example.x.data.local.PrefsManager
 import com.example.x.data.local.ScheduleCacheEntity
 import com.example.x.data.local.StudentInfoEntity
+import com.example.x.data.local.TeacherListCacheEntity
+import com.example.x.data.local.TeacherScheduleCacheEntity
 import com.example.x.data.local.TaskCacheEntity
 import com.example.x.data.local.UserEntity
 import com.example.x.data.model.Course
@@ -71,6 +73,14 @@ class CourseRepository(
         }
 
         return loginWithForm(username, password)
+    }
+
+    /**
+     * Легаси-сессия dekanat (xiais) для получения заданий. В обычном потоке её
+     * создаёт refresh() перед сканом; фоновым проверкам нужно создавать самим.
+     */
+    suspend fun ensureDekanatSession() {
+        api.ensureDekanatBridge()
     }
 
     private fun useJsonLogin(): Boolean =
@@ -447,16 +457,26 @@ class CourseRepository(
     suspend fun getScheduleCached(oddOverride: Boolean? = null): ScheduleData? {
         return try {
             val cached = db.scheduleCacheDao().get() ?: return null
-            val base = ScheduleParser.parseDayInfo(cached.dayInfoJson) ?: return null
-            val fresh = freshDayInfo(base, java.time.LocalDate.now())
-            val effective = if (oddOverride == null) fresh
-            else fresh.copy(weekType = if (oddOverride) "нечетная" else "четная")
+            val info = cachedDayInfo(oddOverride) ?: return null
 
-            ScheduleParser.parseSchedule(cached.scheduleJson, effective)
+            ScheduleParser.parseSchedule(cached.scheduleJson, info)
                 ?.copy(updatedAt = cached.updatedAt)
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Текущий день/неделя из кеша dayInfo с локальной пересчёткой по сегодняшней дате.
+     * Общий якорь и для студенческого расписания, и для расписания преподавателей.
+     * oddOverride: null = авто, true/false = показать нечётную/чётную неделю.
+     */
+    private suspend fun cachedDayInfo(oddOverride: Boolean?): com.example.x.data.model.ScheduleDayInfo? {
+        val cached = db.scheduleCacheDao().get() ?: return null
+        val base = ScheduleParser.parseDayInfo(cached.dayInfoJson) ?: return null
+        val fresh = freshDayInfo(base, java.time.LocalDate.now())
+        return if (oddOverride == null) fresh
+        else fresh.copy(weekType = if (oddOverride) "нечетная" else "четная")
     }
 
     /**
@@ -510,6 +530,72 @@ class CourseRepository(
         }
     }
 
+    // ---------- Расписание преподавателей ----------
+
+    /** Список преподавателей из кеша (пустой список, если кеша нет). */
+    suspend fun getTeacherListCached(): List<com.example.x.data.model.Teacher> {
+        return try {
+            val cached = db.teacherListCacheDao().get() ?: return emptyList()
+            ScheduleParser.parseTeacherList(cached.json) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Список преподавателей из сети с сохранением в кеш. */
+    suspend fun refreshTeacherList(): Result<List<com.example.x.data.model.Teacher>> {
+        return try {
+            val raw = api.fetchTeacherList().getOrElse { return Result.failure(it) }
+            val list = ScheduleParser.parseTeacherList(raw)
+                ?: return Result.failure(Exception("Не удалось разобрать список преподавателей"))
+
+            db.teacherListCacheDao().upsert(
+                TeacherListCacheEntity(0, raw, System.currentTimeMillis())
+            )
+
+            Result.success(list)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Расписание преподавателя из кеша. Чётность/номер недели берём из общего
+     * якоря dayInfo студенческого расписания; если его нет — показываем
+     * нечётную неделю целиком, без фильтра по номеру недели.
+     */
+    suspend fun getTeacherScheduleCached(prepId: Int, oddOverride: Boolean? = null): ScheduleData? {
+        return try {
+            val cached = db.teacherScheduleCacheDao().get(prepId) ?: return null
+            ScheduleParser.parseSchedule(cached.json, cachedDayInfo(oddOverride))
+                ?.copy(updatedAt = cached.updatedAt)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Расписание преподавателя из сети с сохранением в кеш. */
+    suspend fun refreshTeacherSchedule(prepId: Int): Result<ScheduleData> {
+        return try {
+            // dayInfo нужен для фильтра по чётности/неделе; при сбое берём из кеша
+            val dayInfo = api.fetchCurrentDayInfo().getOrNull()
+                ?.let { ScheduleParser.parseDayInfo(it) }
+                ?: cachedDayInfo(null)
+            val raw = api.fetchTeacherSchedule(prepId).getOrElse { return Result.failure(it) }
+            val data = ScheduleParser.parseSchedule(raw, dayInfo)
+                ?: return Result.failure(Exception("Не удалось разобрать расписание преподавателя"))
+
+            val now = System.currentTimeMillis()
+            db.teacherScheduleCacheDao().upsert(
+                TeacherScheduleCacheEntity(prepId, raw, now)
+            )
+
+            Result.success(data.copy(updatedAt = now))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /** Полный выход: очищает базу, prefs, куки и фоновые напоминания. */
     suspend fun logoutFull() {
         clearDatabase()
@@ -526,6 +612,8 @@ class CourseRepository(
             db.userDao().deleteAll()
             db.taskCacheDao().deleteAll()
             db.scheduleCacheDao().deleteAll()
+            db.teacherListCacheDao().deleteAll()
+            db.teacherScheduleCacheDao().deleteAll()
             db.studentInfoDao().insert(StudentInfoEntity(name = null))
         } catch (_: Exception) {
             // Выход продолжается даже при ошибке очистки БД.
