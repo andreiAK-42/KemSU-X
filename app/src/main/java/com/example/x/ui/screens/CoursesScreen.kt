@@ -357,7 +357,7 @@ fun CoursesContent(
 fun CourseCard(c: Course, onClick: (String?) -> Unit) {    ElevatedCard(modifier = Modifier.fillMaxWidth().clickable { onClick(c.cId) }) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${c.num}. ${c.discipline}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text("${c.discipline}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 AssistChip(onClick = {}, label = { Text(c.report) })
             }
             Spacer(Modifier.height(6.dp))
